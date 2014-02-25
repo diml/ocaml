@@ -26,6 +26,8 @@ type error =
   | Illegal_letrec_expr
   | Free_super_var
   | Unknown_builtin_primitive of string
+  | Illegal_int_as_pointer
+  | Illegal_int_as_pointer_for_block
 
 exception Error of Location.t * error
 
@@ -330,6 +332,7 @@ let find_primitive loc prim_name =
     | "%loc_LINE" -> Ploc Loc_LINE
     | "%loc_POS" -> Ploc Loc_POS
     | "%loc_MODULE" -> Ploc Loc_MODULE
+    | "%int_as_pointer" -> raise (Error(loc, Illegal_int_as_pointer))
     | name -> Hashtbl.find primitives_table name
 
 let transl_prim loc prim args =
@@ -785,13 +788,16 @@ and transl_exp0 e =
         match lbl.lbl_repres with
           Record_regular -> Pfield lbl.lbl_pos
         | Record_float -> Pfloatfield lbl.lbl_pos in
-      Lprim(access, [transl_exp arg])
+      Lprim(access, [transl_record_pointer arg false])
   | Texp_setfield(arg, _, lbl, newval) ->
-      let access =
+      let access, maybe_pointer =
         match lbl.lbl_repres with
-          Record_regular -> Psetfield(lbl.lbl_pos, maybe_pointer newval)
-        | Record_float -> Psetfloatfield lbl.lbl_pos in
-      Lprim(access, [transl_exp arg; transl_exp newval])
+          Record_regular ->
+            let maybe_pointer = maybe_pointer newval in
+            (Psetfield(lbl.lbl_pos, maybe_pointer), maybe_pointer)
+        | Record_float ->
+            (Psetfloatfield lbl.lbl_pos, false) in
+      Lprim(access, [transl_record_pointer arg maybe_pointer; transl_exp newval])
   | Texp_array expr_list ->
       let kind = array_kind e in
       let ll = transl_list expr_list in
@@ -926,6 +932,21 @@ and transl_exp0 e =
           cl_env = e.exp_env;
           cl_attributes = [];
          }
+
+and transl_record_pointer exp affect_a_maybe_pointer =
+  match exp with
+    { exp_desc =
+        Texp_apply
+          ({ exp_desc = Texp_ident
+                          (path, loc,
+                           { val_kind = Val_prim { prim_name = "%int_as_pointer" }})},
+           ["", Some e, Required]) } ->
+      if affect_a_maybe_pointer then
+        raise (Error(loc.loc, Illegal_int_as_pointer_for_block))
+      else
+        Lprim(Pint_as_pointer, [transl_exp e])
+  | e ->
+      transl_exp e
 
 and transl_list expr_list =
   List.map transl_exp expr_list
@@ -1167,6 +1188,11 @@ let report_error ppf = function
         "Ancestor names can only be used to select inherited methods"
   | Unknown_builtin_primitive prim_name ->
     fprintf ppf  "Unknown builtin primitive \"%s\"" prim_name
+  | Illegal_int_as_pointer ->
+    fprintf ppf "the %%int_as_pointer primitive cannot be used here"
+  | Illegal_int_as_pointer_for_block ->
+    fprintf ppf "the %%int_as_pointer primitive cannot be used for \
+                 the affectation a constructed value"
 
 let () =
   Location.register_error_of_exn

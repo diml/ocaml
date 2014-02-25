@@ -459,10 +459,17 @@ let rec remove_unit = function
 
 (* Access to block fields *)
 
+let add_addr ptr n =
+  match ptr with
+  | Cop(Cadda, [ptr; Cconst_int m]) ->
+    Cop(Cadda, [ptr; Cconst_int (m + n)])
+  | _ ->
+    Cop(Cadda, [ptr; Cconst_int n])
+
 let field_address ptr n =
   if n = 0
   then ptr
-  else Cop(Cadda, [ptr; Cconst_int(n * size_addr)])
+  else add_addr ptr (n * size_addr)
 
 let get_field ptr n =
   Cop(Cload Word, [field_address ptr n])
@@ -1548,7 +1555,10 @@ and transl_prim_1 p arg dbg =
       box_float(
         Cop(Cload Double_u,
             [if n = 0 then ptr
-                       else Cop(Cadda, [ptr; Cconst_int(n * size_float)])]))
+                       else add_addr ptr (n * size_float)]))
+  | Pint_as_pointer ->
+      let ptr = transl arg in
+      add_addr ptr (-1)
   (* Exceptions *)
   | Praise k ->
       Cop(Craise (k, dbg), [transl arg])
@@ -1650,7 +1660,7 @@ and transl_prim_2 p arg1 arg2 dbg =
       return_unit(
         Cop(Cstore Double_u,
             [if n = 0 then ptr
-                       else Cop(Cadda, [ptr; Cconst_int(n * size_float)]);
+                       else add_addr ptr (n * size_float);
                    transl_unbox_float arg2]))
 
   (* Boolean operations *)
