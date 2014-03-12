@@ -323,7 +323,7 @@ case "$bytecc,$target" in
     mathlib="";;
   *,*-*-darwin*)
     # On recent version of OSX, gcc is a symlink to clang
-    if $bytecc --version | grep -q ^clang; then
+    if $bytecc --version | grep -q clang; then
         # -fno-defer-pop is not supported by clang, and make recent
         # versions of clang to fail
         bytecccompopts="$gcc_warnings"
