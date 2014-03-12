@@ -321,19 +321,15 @@ case "$bytecc,$target" in
     # Almost the same as NeXTStep
     bytecccompopts="-fno-defer-pop $gcc_warnings -DSHRINKED_GNUC"
     mathlib="";;
-  *clang,*-*-darwin*)
-    # -fno-defer-pop is not supported by clang, and make recent
-    # versions of clang to fail.
-    bytecccompopts="$gcc_warnings"
-    mathlib=""
-    mkexe="$mkexe -Wl,-no_compact_unwind"
-    # Tell gcc that we can use 32-bit code addresses for threaded code
-    # unless we are compiled for a shared library (-fPIC option)
-    echo "#ifndef __PIC__" >> m.h
-    echo "#  define ARCH_CODE32" >> m.h
-    echo "#endif" >> m.h;;
   *,*-*-darwin*)
-    bytecccompopts="-fno-defer-pop $gcc_warnings"
+    # On recent version of OSX, gcc is a symlink to clang
+    if $bytecc --version | grep -q ^clang; then
+        # -fno-defer-pop is not supported by clang, and make recent
+        # versions of clang to fail
+        bytecccompopts="$gcc_warnings"
+    else
+        bytecccompopts="-fno-defer-pop $gcc_warnings"
+    fi
     mathlib=""
     mkexe="$mkexe -Wl,-no_compact_unwind"
     # Tell gcc that we can use 32-bit code addresses for threaded code
