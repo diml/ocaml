@@ -46,6 +46,12 @@ val find_in_path_uncap: string list -> string -> string
         (* Same, but search also for uncapitalized name, i.e.
            if name is Foo.ml, allow /path/Foo.ml and /path/foo.ml
            to match. *)
+val find_in_path_prefix_uncap: string list -> string -> string -> string
+        (* [find_in_path_prefix_uncap path prefix name] is the same,
+           but search also for the prefixed name, i.e.
+           if prefix is Foo and name is is Bar.ml,
+           allow /path/FooBar.ml, /path/fooBar.ml, /path/Bar.ml
+           and /path/bar.ml to match. *)
 val remove_file: string -> unit
         (* Delete the given file if it exists. Never raise an error. *)
 val expand_directory: string -> string -> string

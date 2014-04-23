@@ -226,6 +226,10 @@ let mk_ppx f =
   "<command>  Pipe abstract syntax trees through preprocessor <command>"
 ;;
 
+let mk_prefix f =
+  "-prefix", Arg.String f, " Compilation unit prefix"
+;;
+
 let mk_principal f =
   "-principal", Arg.Unit f, " Check principality of type inference"
 ;;
@@ -464,6 +468,7 @@ module type Bytecomp_options = sig
   val _pack : unit -> unit
   val _pp : string -> unit
   val _ppx : string -> unit
+  val _prefix : string -> unit
   val _principal : unit -> unit
   val _rectypes : unit -> unit
   val _runtime_variant : string -> unit
@@ -508,6 +513,7 @@ module type Bytetop_options = sig
   val _nopromptcont : unit -> unit
   val _nostdlib : unit -> unit
   val _ppx : string -> unit
+  val _prefix : string -> unit
   val _principal : unit -> unit
   val _rectypes : unit -> unit
   val _short_paths : unit -> unit
@@ -565,6 +571,7 @@ module type Optcomp_options = sig
   val _pack : unit -> unit
   val _pp : string -> unit
   val _ppx : string -> unit
+  val _prefix : string -> unit
   val _principal : unit -> unit
   val _rectypes : unit -> unit
   val _runtime_variant : string -> unit
@@ -623,6 +630,7 @@ module type Opttop_options = sig
   val _nopromptcont : unit -> unit
   val _nostdlib : unit -> unit
   val _ppx : string -> unit
+  val _prefix : string -> unit
   val _principal : unit -> unit
   val _rectypes : unit -> unit
   val _S : unit -> unit
@@ -705,6 +713,7 @@ struct
     mk_pack_byt F._pack;
     mk_pp F._pp;
     mk_ppx F._ppx;
+    mk_prefix F._prefix;
     mk_principal F._principal;
     mk_rectypes F._rectypes;
     mk_runtime_variant F._runtime_variant;
@@ -752,6 +761,7 @@ struct
     mk_nopromptcont F._nopromptcont;
     mk_nostdlib F._nostdlib;
     mk_ppx F._ppx;
+    mk_prefix F._prefix;
     mk_principal F._principal;
     mk_rectypes F._rectypes;
     mk_short_paths F._short_paths;
@@ -812,6 +822,7 @@ struct
     mk_pack_opt F._pack;
     mk_pp F._pp;
     mk_ppx F._ppx;
+    mk_prefix F._prefix;
     mk_principal F._principal;
     mk_rectypes F._rectypes;
     mk_runtime_variant F._runtime_variant;
@@ -871,6 +882,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_nopromptcont F._nopromptcont;
     mk_nostdlib F._nostdlib;
     mk_ppx F._ppx;
+    mk_prefix F._prefix;
     mk_principal F._principal;
     mk_rectypes F._rectypes;
     mk_S F._S;

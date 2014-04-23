@@ -87,17 +87,31 @@ let find_in_path path name =
     in try_dir path
   end
 
-let find_in_path_uncap path name =
-  let uname = String.uncapitalize name in
-  let rec try_dir = function
+let rec find_in_path_alt path alt =
+  match path with
     [] -> raise Not_found
   | dir::rem ->
-      let fullname = Filename.concat dir name
-      and ufullname = Filename.concat dir uname in
-      if Sys.file_exists ufullname then ufullname
-      else if Sys.file_exists fullname then fullname
-      else try_dir rem
-  in try_dir path
+    let rec try_alt = function
+        [] -> find_in_path_alt rem alt
+      | name::rem ->
+        let fullname = Filename.concat dir name in
+        if Sys.file_exists fullname then fullname
+        else try_alt rem
+    in
+    try_alt alt
+
+let find_in_path_uncap path name =
+  find_in_path_alt path [String.uncapitalize name; name]
+
+let find_in_path_prefix_uncap path prefix name =
+  if prefix = "" then
+    find_in_path_uncap path name
+  else
+    let pname = prefix ^ name in
+    find_in_path_alt path [String.uncapitalize pname;
+                           pname;
+                           String.uncapitalize name;
+                           name]
 
 let remove_file filename =
   try

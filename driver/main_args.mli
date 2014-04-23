@@ -45,6 +45,7 @@ module type Bytecomp_options =
     val _pack : unit -> unit
     val _pp : string -> unit
     val _ppx : string -> unit
+    val _prefix : string -> unit
     val _principal : unit -> unit
     val _rectypes : unit -> unit
     val _runtime_variant : string -> unit
@@ -90,6 +91,7 @@ module type Bytetop_options = sig
   val _nopromptcont : unit -> unit
   val _nostdlib : unit -> unit
   val _ppx : string -> unit
+  val _prefix : string -> unit
   val _principal : unit -> unit
   val _rectypes : unit -> unit
   val _short_paths : unit -> unit
@@ -147,6 +149,7 @@ module type Optcomp_options = sig
   val _pack : unit -> unit
   val _pp : string -> unit
   val _ppx : string -> unit
+  val _prefix : string -> unit
   val _principal : unit -> unit
   val _rectypes : unit -> unit
   val _runtime_variant : string -> unit
@@ -205,6 +208,7 @@ module type Opttop_options = sig
   val _nopromptcont : unit -> unit
   val _nostdlib : unit -> unit
   val _ppx : string -> unit
+  val _prefix : string -> unit
   val _principal : unit -> unit
   val _rectypes : unit -> unit
   val _S : unit -> unit

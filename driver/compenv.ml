@@ -12,11 +12,24 @@
 
 open Clflags
 
+let add_prefix name =
+  match !prefix with
+  | "" -> name
+  | s ->
+    let uname = String.capitalize name in
+    if name = uname then
+      !prefix ^ uname
+    else
+      String.uncapitalize !prefix ^ uname
+;;
+
 let output_prefix name =
   let oname =
     match !output_name with
-    | None -> name
-    | Some n -> if !compile_only then (output_name := None; n) else name in
+    | None -> add_prefix name
+    | Some n ->
+      if !compile_only then (output_name := None; n) else add_prefix name
+  in
   Misc.chop_extension_if_any oname
 
 let print_version_and_library compiler =

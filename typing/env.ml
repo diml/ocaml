@@ -328,7 +328,7 @@ let read_pers_struct modname filename =
              ps_crcs_checked = false;
              ps_filename = filename;
              ps_flags = flags } in
-  if ps.ps_name <> modname then
+  if ps.ps_name <> modname && ps.ps_name <> !Clflags.prefix ^ modname then
     error (Illegal_renaming(modname, ps.ps_name, filename));
   if not !Clflags.transparent_modules then check_consistency ps;
   List.iter
@@ -336,14 +336,20 @@ let read_pers_struct modname filename =
       if not !Clflags.recursive_types then
         error (Need_recursive_types(ps.ps_name, !current_unit)))
     ps.ps_flags;
-  Hashtbl.add persistent_structures modname (Some ps);
+  Hashtbl.add persistent_structures ps.ps_name (Some ps);
   ps
 
 let find_pers_struct ?(check=true) name =
   if name = "*predef*" then raise Not_found;
+  let prefix = !Clflags.prefix in
   let r =
     try Some (Hashtbl.find persistent_structures name)
-    with Not_found -> None
+    with Not_found ->
+      if prefix = "" then
+        None
+      else
+        try Some (Hashtbl.find persistent_structures (prefix ^ name))
+        with Not_found -> None
   in
   let ps =
     match r with
@@ -351,7 +357,7 @@ let find_pers_struct ?(check=true) name =
     | Some (Some sg) -> sg
     | None ->
       let filename =
-        try find_in_path_uncap !load_path (name ^ ".cmi")
+        try find_in_path_prefix_uncap !load_path prefix (name ^ ".cmi")
         with Not_found ->
           Hashtbl.add persistent_structures name None;
           raise Not_found
@@ -602,7 +608,7 @@ let rec lookup_module_descr lid env =
       with Not_found ->
         if s = !current_unit then raise Not_found;
         let ps = find_pers_struct s in
-        (Pident(Ident.create_persistent s), ps.ps_comps)
+        (Pident(Ident.create_persistent ps.ps_name), ps.ps_comps)
       end
   | Ldot(l, s) ->
       let (p, descr) = lookup_module_descr l env in
@@ -639,8 +645,8 @@ and lookup_module lid env : Path.t =
         p
       with Not_found ->
         if s = !current_unit then raise Not_found;
-        ignore (find_pers_struct ~check:false s);
-        Pident(Ident.create_persistent s)
+        let ps = find_pers_struct ~check:false s in
+        Pident(Ident.create_persistent ps.ps_name)
       end
   | Ldot(l, s) ->
       let (p, descr) = lookup_module_descr l env in
@@ -1516,7 +1522,7 @@ let open_signature slot root sg env0 =
 
 let open_pers_signature name env =
   let ps = find_pers_struct name in
-  open_signature None (Pident(Ident.create_persistent name)) ps.ps_sig env
+  open_signature None (Pident(Ident.create_persistent ps.ps_name)) ps.ps_sig env
 
 let open_signature ?(loc = Location.none) ?(toplevel = false) ovf root sg env =
   if not toplevel && ovf = Asttypes.Fresh && not loc.Location.loc_ghost
@@ -1560,7 +1566,7 @@ let read_signature modname filename =
 let crc_of_unit name =
   let ps = find_pers_struct ~check:false name in
   try
-    List.assoc name ps.ps_crcs
+    List.assoc ps.ps_name ps.ps_crcs
   with Not_found ->
     assert false
 

@@ -122,8 +122,8 @@ and really_load_file recursive ppf name filename ic =
             | (Reloc_getglobal id, _)
               when not (Symtable.is_global_defined id) ->
                 let file = Ident.name id ^ ".cmo" in
-                begin match try Some (Misc.find_in_path_uncap !Config.load_path
-                                        file)
+                begin match try Some (Misc.find_in_path_prefix_uncap !Config.load_path
+                                        !Clflags.prefix file)
                       with Not_found -> None
                 with
                 | None -> ()
