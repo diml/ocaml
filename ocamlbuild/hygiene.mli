@@ -17,7 +17,7 @@
 (** Module for checking that the source tree is not polluted by object files. *)
 
 (** Sanity rules to abide.  Not to be confused with compilation rules. *)
-type rule =
+type rec rule =
   Implies_not of pattern * pattern (** The rule [Implies_not(".mll",".ml")] is broken if there is a file [foo.mll]
                                        together with a file [foo.ml] int the same directory.  The second file can
                                        get sanitized. *)

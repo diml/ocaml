@@ -16,7 +16,7 @@ open Asttypes
 
 (** {2 Extension points} *)
 
-type attribute = string loc * payload
+type rec attribute = string loc * payload
        (* [@id ARG]
           [@@id ARG]
 

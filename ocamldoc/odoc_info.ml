@@ -12,7 +12,7 @@
 
 (** Interface for analysing documented OCaml source files and to the collected information. *)
 
-type ref_kind = Odoc_types.ref_kind =
+type rec ref_kind = Odoc_types.ref_kind =
     RK_module
   | RK_module_type
   | RK_class

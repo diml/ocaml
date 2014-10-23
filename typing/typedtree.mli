@@ -23,7 +23,7 @@ type optional = Required | Optional
 type attribute = Parsetree.attribute
 type attributes = attribute list
 
-type pattern =
+type rec pattern =
   { pat_desc: pattern_desc;
     pat_loc: Location.t;
     pat_extra : (pat_extra * Location.t * attributes) list;

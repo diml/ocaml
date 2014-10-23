@@ -18,7 +18,7 @@ open Slurp
 
 exception Exit_hygiene_violations
 
-type rule =
+type rec rule =
 | Implies_not of pattern * pattern
 | Not of pattern
 and pattern = suffix

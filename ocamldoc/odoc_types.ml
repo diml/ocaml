@@ -10,7 +10,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-type ref_kind =
+type rec ref_kind =
     RK_module
   | RK_module_type
   | RK_class

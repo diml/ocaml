@@ -43,7 +43,7 @@ type formatting_lit =
   | Escaped_percent
   | Scan_indic of char
 
-type ('a, 'b, 'c, 'd, 'e, 'f) formatting_gen =
+type rec ('a, 'b, 'c, 'd, 'e, 'f) formatting_gen =
   | Open_tag : ('a, 'b, 'c, 'd, 'e, 'f) format6 ->
     ('a, 'b, 'c, 'd, 'e, 'f) formatting_gen
   | Open_box : ('a, 'b, 'c, 'd, 'e, 'f) format6 ->

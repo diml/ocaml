@@ -72,7 +72,7 @@ module EnvLazy : sig
 
 end  = struct
 
-  type ('a,'b) t = ('a,'b) eval ref
+  type rec ('a,'b) t = ('a,'b) eval ref
 
   and ('a,'b) eval =
       Done of 'b
@@ -167,7 +167,7 @@ type type_descriptions =
 let in_signature_flag = 0x01
 let implicit_coercion_flag = 0x02
 
-type t = {
+type rec t = {
   values: (Path.t * value_description) EnvTbl.t;
   constrs: constructor_description EnvTbl.t;
   labels: label_description EnvTbl.t;

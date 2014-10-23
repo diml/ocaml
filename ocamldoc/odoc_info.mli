@@ -13,7 +13,7 @@
 (** Interface to the information collected in source files. *)
 
 (** The differents kinds of element references. *)
-type ref_kind = Odoc_types.ref_kind =
+type rec ref_kind = Odoc_types.ref_kind =
     RK_module
   | RK_module_type
   | RK_class
