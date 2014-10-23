@@ -642,10 +642,11 @@ structure_item:
       { mkstr
           (Pstr_primitive (Val.mk (mkrhs $2 2) $4
                              ~prim:$6 ~attrs:$7 ~loc:(symbol_rloc ()))) }
-  | TYPE type_declarations
-      { mkstr(Pstr_type (List.rev $2) ) }
-  | TYPE str_type_extension
-      { mkstr(Pstr_typext $2) }
+  | TYPE rec_flag type_declarations
+      { mkstr(Pstr_type ($2, List.rev $3) ) }
+  | TYPE rec_flag str_type_extension
+      { if $2 = Recursive then not_expecting 2 "rec flag";
+        mkstr(Pstr_typext $3) }
   | EXCEPTION str_exception_declaration
       { mkstr(Pstr_exception $2) }
   | MODULE module_binding
@@ -729,10 +730,11 @@ signature_item:
       { mksig(Psig_value
                 (Val.mk (mkrhs $2 2) $4 ~prim:$6 ~attrs:$7
                    ~loc:(symbol_rloc()))) }
-  | TYPE type_declarations
-      { mksig(Psig_type (List.rev $2)) }
-  | TYPE sig_type_extension
-      { mksig(Psig_typext $2) }
+  | TYPE rec_flag type_declarations
+      { mksig(Psig_type ($2, List.rev $3)) }
+  | TYPE rec_flag sig_type_extension
+      { if $2 = Recursive then not_expecting 2 "rec flag";
+        mksig(Psig_typext $3) }
   | EXCEPTION sig_exception_declaration
       { mksig(Psig_exception $2) }
   | MODULE UIDENT module_declaration post_item_attributes

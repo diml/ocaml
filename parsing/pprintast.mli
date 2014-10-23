@@ -105,7 +105,7 @@ class printer :
     method type_declaration :
       Format.formatter -> Parsetree.type_declaration -> unit
     method type_def_list :
-      Format.formatter -> Parsetree.type_declaration list -> unit
+      Format.formatter -> Asttypes.rec_flag * Parsetree.type_declaration list -> unit
     method type_extension :
       Format.formatter -> Parsetree.type_extension -> unit
     method type_param :
