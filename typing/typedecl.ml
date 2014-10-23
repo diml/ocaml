@@ -215,7 +215,7 @@ let make_constructor loc env type_path type_params sargs sret_type =
       widen z;
       targs, Some tret_type, args, Some ret_type
 
-let transl_declaration env sdecl id =
+let transl_declaration manifest_env env sdecl id =
   (* Bind type parameters *)
   reset_type_variables();
   Ctype.begin_def ();
@@ -284,7 +284,7 @@ let transl_declaration env sdecl id =
         None -> None, None
       | Some sty ->
         let no_row = not (is_fixed_type sdecl) in
-        let cty = transl_simple_type env no_row sty in
+        let cty = transl_simple_type manifest_env no_row sty in
         Some cty, Some cty.ctyp_type
     in
     let decl =
@@ -985,7 +985,7 @@ let name_recursion sdecl id decl =
   | _ -> decl
 
 (* Translate a set of mutually recursive type declarations *)
-let transl_type_decl env sdecl_list =
+let transl_type_decl env rec_flag sdecl_list =
   (* Add dummy types for fixed rows *)
   let fixed_types = List.filter is_fixed_type sdecl_list in
   let sdecl_list =
@@ -1013,6 +1013,11 @@ let transl_type_decl env sdecl_list =
   Ctype.begin_def();
   (* Enter types. *)
   let temp_env = List.fold_left2 enter_type env sdecl_list id_list in
+  let manifest_env =
+    match rec_flag with
+    | Asttypes.Nonrecursive -> env
+    | Asttypes.Recursive -> temp_env
+  in
   (* Translate each declaration. *)
   let current_slot = ref None in
   let warn_unused = Warnings.is_active (Warnings.Unused_type_declaration "") in
@@ -1037,7 +1042,7 @@ let transl_type_decl env sdecl_list =
       id, Some slot
   in
   let transl_declaration name_sdecl (id, slot) =
-    current_slot := slot; transl_declaration temp_env name_sdecl id in
+    current_slot := slot; transl_declaration manifest_env temp_env name_sdecl id in
   let tdecls =
     List.map2 transl_declaration sdecl_list (List.map id_slots id_list) in
   let decls =
