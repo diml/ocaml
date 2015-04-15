@@ -1362,7 +1362,7 @@ let transl_value_decl env loc valdecl =
       raise (Error(valdecl.pval_loc, Val_in_structure))
   | decl ->
       let arity = Ctype.arity ty in
-      let prim = Primitive.parse_declaration arity decl in
+      let prim = Primitive.parse_declaration arity decl valdecl.pval_type in
       if arity = 0 && (prim.prim_name = "" || prim.prim_name.[0] <> '%') then
         raise(Error(valdecl.pval_type.ptyp_loc, Null_arity_external));
       if !Clflags.native_code
