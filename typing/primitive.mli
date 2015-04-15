@@ -27,23 +27,22 @@ type description = private
     prim_native_unbox_args: unbox list;
     prim_native_unbox_res : unbox }
 
-val make
-  :  name:string
-  -> alloc:bool
-  -> native_name:string
-  -> native_unbox_args:unbox list
-  -> native_unbox_res:unbox
-  -> description
-
-val make_byte
+val simple
   :  name:string
   -> arity:int
   -> alloc:bool
   -> description
 
-val parse_declaration: int -> string list -> Parsetree.core_type -> description
+val parse_declaration: Parsetree.value_description -> description
 
 val description_list: description -> string list
 
 val native_name: description -> string
 val byte_name: description -> string
+
+type error =
+  | Unbox_attribute_has_payload
+  | Conflicting_unbox_attributes
+  | Float_with_unbox_attribute
+
+exception Error of Location.t * error

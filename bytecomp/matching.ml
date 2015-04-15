@@ -1474,7 +1474,7 @@ let matcher_lazy p rem = match p.pat_desc with
 *)
 
 let prim_obj_tag =
-  Primitive.make_byte ~name:"caml_obj_tag" ~arity:1 ~alloc:false
+  Primitive.simple ~name:"caml_obj_tag" ~arity:1 ~alloc:false
 
 let get_mod_field modname field =
   lazy (
@@ -1703,13 +1703,13 @@ let divide_array kind ctx pm =
 let strings_test_threshold = 8
 
 let prim_string_notequal =
-  Pccall(Primitive.make_byte
+  Pccall(Primitive.simple
            ~name:"caml_string_notequal"
            ~arity:2
            ~alloc:false)
 
 let prim_string_compare =
-  Pccall(Primitive.make_byte
+  Pccall(Primitive.simple
            ~name:"caml_string_compare"
            ~arity:2
            ~alloc:false)

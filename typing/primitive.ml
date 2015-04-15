@@ -30,99 +30,92 @@ type description =
     prim_native_unbox_args: unbox list;
     prim_native_unbox_res : unbox }
 
-let make
-      ~name
-      ~alloc
-      ~native_name
-      ~native_unbox_args
-      ~native_unbox_res
-  =
-  let arity = List.length native_unbox_args in
-  { prim_name = name;
-    prim_arity = arity;
-    prim_alloc = alloc;
-    prim_native_name = native_name;
-    prim_native_unbox_args = native_unbox_args;
-    prim_native_unbox_res = native_unbox_res }
+type error =
+  | Unbox_attribute_has_payload
+  | Conflicting_unbox_attributes
+  | Float_with_unbox_attribute
 
-let rec make_unbox_list arity x =
+exception Error of Location.t * error
+
+let is_unbox = function
+  | Do_not_unbox -> false
+  | Unbox_float
+  | Unbox_int32
+  | Unbox_int64
+  | Unbox_nativeint -> true
+
+let rec make_unbox_args arity x =
   if arity = 0 then
     []
   else
-    x :: make_unbox_list (arity - 1) x
+    x :: make_unbox_args (arity - 1) x
 
-let all_float_unboxed arity = make_unbox_list arity Unbox_float
+let simple ~name ~arity ~alloc =
+  {prim_name = name;
+   prim_arity = arity;
+   prim_alloc = alloc;
+   prim_native_name = "";
+   prim_native_unbox_args = make_unbox_args arity Do_not_unbox;
+   prim_native_unbox_res = Do_not_unbox}
 
-let make_byte ~name ~arity ~alloc =
-  { prim_name = name;
-    prim_arity = arity;
-    prim_alloc = alloc;
-    prim_native_name = "";
-    prim_native_unbox_args = make_unbox_list arity Do_not_unbox;
-    prim_native_unbox_res = Do_not_unbox }
-
-let has name ty =
-  match List.find (fun (n, payload) -> n.Location.txt = name) ty.ptyp_attributes with
+let core_type_has_attribute name ty =
+  match
+    List.find (fun (n, payload) -> n.Location.txt = name) ty.ptyp_attributes
+  with
   | exception Not_found -> false
   | (_, PStr []) -> true
-  | (n, _) -> Location.raise_errorf ~loc:n.Location.loc "payload not allowed here"
+  | (n, _) -> raise (Error (n.Location.loc, Unbox_attribute_has_payload))
 
 let unbox_of_core_type ty =
   match
-    has "unbox_float" ty,
-    has "unbox_int32" ty,
-    has "unbox_int64" ty,
-    has "unbox_nativeint" ty
+    core_type_has_attribute "unbox_float" ty,
+    core_type_has_attribute "unbox_int32" ty,
+    core_type_has_attribute "unbox_int64" ty,
+    core_type_has_attribute "unbox_nativeint" ty
   with
   | false, false, false, false -> Do_not_unbox
   | true , false, false, false -> Unbox_float
   | false, true , false, false -> Unbox_int32
   | false, false, true , false -> Unbox_int64
   | false, false, false, true  -> Unbox_nativeint
-  | _ ->
-    Location.raise_errorf ~loc:ty.ptyp_loc "conflicting [@@unbox_XX ] attributes"
+  | _ -> raise (Error (ty.ptyp_loc, Conflicting_unbox_attributes))
 
 let rec unbox_of_arrow_type ty =
   match ty.ptyp_desc with
   | Ptyp_arrow (_, a, b) ->
-    let unbox_args, unbox_res = unbox_of_arrow_type b in
-    (unbox_of_core_type a :: unbox_args, unbox_res)
+      let unbox_args, unbox_res = unbox_of_arrow_type b in
+      (unbox_of_core_type a :: unbox_args, unbox_res)
   | _ ->
-    ([], unbox_of_core_type ty)
+      ([], unbox_of_core_type ty)
 
-let parse_declaration arity decl ty =
-  let prim_native_unbox_args, prim_native_unbox_res =
-    unbox_of_arrow_type ty
+let parse_declaration valdecl =
+  let unbox_args, unbox_res = unbox_of_arrow_type valdecl.pval_type in
+  let arity = List.length unbox_args in
+  let name, native_name, noalloc, float =
+    match valdecl.pval_prim with
+    | name :: "noalloc" :: name2 :: "float" :: _ -> (name, name2, true, true)
+    | name :: "noalloc" :: name2 :: _ -> (name, name2, true, false)
+    | name :: name2 :: "float" :: _ -> (name, name2, false, true)
+    | name :: "noalloc" :: _ -> (name, "", true, false)
+    | name :: name2 :: _ -> (name, name2, false, false)
+    | name :: _ -> (name, "", false, false)
+    | [] ->
+        fatal_error "Primitive.parse_declaration"
   in
-  match decl with
-  | name :: "noalloc" :: name2 :: "float" :: _ ->
-      {prim_name = name; prim_arity = arity; prim_alloc = false;
-       prim_native_name = name2;
-       prim_native_unbox_args = all_float_unboxed arity;
-       prim_native_unbox_res = Unbox_float}
-  | name :: "noalloc" :: name2 :: _ ->
-      {prim_name = name; prim_arity = arity; prim_alloc = false;
-       prim_native_name = name2;
-       prim_native_unbox_args; prim_native_unbox_res}
-  | name :: name2 :: "float" :: _ ->
-      {prim_name = name; prim_arity = arity; prim_alloc = true;
-       prim_native_name = name2;
-       prim_native_unbox_args = all_float_unboxed arity;
-       prim_native_unbox_res = Unbox_float}
-  | name :: "noalloc" :: _ ->
-      {prim_name = name; prim_arity = arity; prim_alloc = false;
-       prim_native_name = "";
-       prim_native_unbox_args; prim_native_unbox_res}
-  | name :: name2 :: _ ->
-      {prim_name = name; prim_arity = arity; prim_alloc = true;
-       prim_native_name = name2;
-       prim_native_unbox_args; prim_native_unbox_res}
-  | name :: _ ->
-      {prim_name = name; prim_arity = arity; prim_alloc = true;
-       prim_native_name = "";
-       prim_native_unbox_args; prim_native_unbox_res}
-  | [] ->
-      fatal_error "Primitive.parse_declaration"
+  if float && (List.exists is_unbox unbox_args || is_unbox unbox_res) then
+    raise (Error (valdecl.pval_loc, Float_with_unbox_attribute));
+  let unbox_args, unbox_res =
+    if float then
+      (make_unbox_args arity Unbox_float, Unbox_float)
+    else
+      (unbox_args, unbox_res)
+  in
+  {prim_name = name;
+   prim_arity = arity;
+   prim_alloc = not noalloc;
+   prim_native_name = native_name;
+   prim_native_unbox_args = unbox_args;
+   prim_native_unbox_res = unbox_res}
 
 let description_list p =
   let list = [p.prim_name] in
@@ -131,8 +124,9 @@ let description_list p =
     if p.prim_native_name <> "" then p.prim_native_name :: list else list
   in
   let list =
-    if List.for_all (function Unbox_float -> true | _ -> false) p.prim_native_unbox_args
-       && p.prim_native_unbox_res = Unbox_float then
+    let is_unbox_float x = x = Unbox_float in
+    if List.for_all is_unbox_float p.prim_native_unbox_args &&
+       is_unbox_float p.prim_native_unbox_res then
       "float" :: list
     else
       list
@@ -146,3 +140,23 @@ let native_name p =
 
 let byte_name p =
   p.prim_name
+
+let report_error ppf err =
+  let open Format in
+  match err with
+  | Unbox_attribute_has_payload ->
+      fprintf ppf "Wrong attribute format: \
+                   payload not allowed in [@unbox_... ] attributes"
+  | Conflicting_unbox_attributes ->
+      fprintf ppf "Conflicting [@unbox_... ] attributes"
+  | Float_with_unbox_attribute ->
+      fprintf ppf "Cannot use \"float\" in conjunction with [@unbox_... ]"
+
+let () =
+  Location.register_error_of_exn
+    (function
+      | Error (loc, err) ->
+        Some (Location.error_of_printer loc report_error err)
+      | _ ->
+        None
+    )

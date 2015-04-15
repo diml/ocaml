@@ -1019,7 +1019,7 @@ let check_bound unsafe dbg a1 a2 k =
 (* Simplification of some primitives into C calls *)
 
 let default_prim name =
-  Primitive.make_byte ~name ~arity:0(*ignored*) ~alloc:true
+  Primitive.simple ~name ~arity:0(*ignored*) ~alloc:true
 
 let simplif_primitive_32bits = function
     Pbintofint Pint64 -> Pccall (default_prim "caml_int64_of_int")

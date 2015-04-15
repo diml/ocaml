@@ -42,79 +42,79 @@ let transl_object =
 
 let comparisons_table = create_hashtable 11 [
   "%equal",
-      (Pccall(Primitive.make_byte ~name: "caml_equal" ~arity: 2 ~alloc: true),
+      (Pccall(Primitive.simple ~name: "caml_equal" ~arity: 2 ~alloc: true),
        Pintcomp Ceq,
        Pfloatcomp Ceq,
-       Pccall(Primitive.make_byte ~name: "caml_string_equal" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_string_equal" ~arity: 2
              ~alloc: false),
        Pbintcomp(Pnativeint, Ceq),
        Pbintcomp(Pint32, Ceq),
        Pbintcomp(Pint64, Ceq),
        true);
   "%notequal",
-      (Pccall(Primitive.make_byte ~name: "caml_notequal" ~arity: 2 ~alloc: true),
+      (Pccall(Primitive.simple ~name: "caml_notequal" ~arity: 2 ~alloc: true),
        Pintcomp Cneq,
        Pfloatcomp Cneq,
-       Pccall(Primitive.make_byte ~name: "caml_string_notequal" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_string_notequal" ~arity: 2
              ~alloc: false),
        Pbintcomp(Pnativeint, Cneq),
        Pbintcomp(Pint32, Cneq),
        Pbintcomp(Pint64, Cneq),
        true);
   "%lessthan",
-      (Pccall(Primitive.make_byte ~name: "caml_lessthan" ~arity: 2 ~alloc: true),
+      (Pccall(Primitive.simple ~name: "caml_lessthan" ~arity: 2 ~alloc: true),
        Pintcomp Clt,
        Pfloatcomp Clt,
-       Pccall(Primitive.make_byte ~name: "caml_string_lessthan" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_string_lessthan" ~arity: 2
              ~alloc: false),
        Pbintcomp(Pnativeint, Clt),
        Pbintcomp(Pint32, Clt),
        Pbintcomp(Pint64, Clt),
        false);
   "%greaterthan",
-      (Pccall(Primitive.make_byte ~name: "caml_greaterthan" ~arity: 2 ~alloc: true),
+      (Pccall(Primitive.simple ~name: "caml_greaterthan" ~arity: 2 ~alloc: true),
        Pintcomp Cgt,
        Pfloatcomp Cgt,
-       Pccall(Primitive.make_byte ~name: "caml_string_greaterthan" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_string_greaterthan" ~arity: 2
              ~alloc: false),
        Pbintcomp(Pnativeint, Cgt),
        Pbintcomp(Pint32, Cgt),
        Pbintcomp(Pint64, Cgt),
        false);
   "%lessequal",
-      (Pccall(Primitive.make_byte ~name: "caml_lessequal" ~arity: 2 ~alloc: true),
+      (Pccall(Primitive.simple ~name: "caml_lessequal" ~arity: 2 ~alloc: true),
        Pintcomp Cle,
        Pfloatcomp Cle,
-       Pccall(Primitive.make_byte ~name: "caml_string_lessequal" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_string_lessequal" ~arity: 2
              ~alloc: false),
        Pbintcomp(Pnativeint, Cle),
        Pbintcomp(Pint32, Cle),
        Pbintcomp(Pint64, Cle),
        false);
   "%greaterequal",
-      (Pccall(Primitive.make_byte ~name: "caml_greaterequal" ~arity: 2
+      (Pccall(Primitive.simple ~name: "caml_greaterequal" ~arity: 2
              ~alloc: true),
        Pintcomp Cge,
        Pfloatcomp Cge,
-       Pccall(Primitive.make_byte ~name: "caml_string_greaterequal" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_string_greaterequal" ~arity: 2
              ~alloc: false),
        Pbintcomp(Pnativeint, Cge),
        Pbintcomp(Pint32, Cge),
        Pbintcomp(Pint64, Cge),
        false);
   "%compare",
-      (Pccall(Primitive.make_byte ~name: "caml_compare" ~arity: 2 ~alloc: true),
-       Pccall(Primitive.make_byte ~name: "caml_int_compare" ~arity: 2
+      (Pccall(Primitive.simple ~name: "caml_compare" ~arity: 2 ~alloc: true),
+       Pccall(Primitive.simple ~name: "caml_int_compare" ~arity: 2
              ~alloc: false),
-       Pccall(Primitive.make_byte ~name: "caml_float_compare" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_float_compare" ~arity: 2
              ~alloc: false),
-       Pccall(Primitive.make_byte ~name: "caml_string_compare" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_string_compare" ~arity: 2
              ~alloc: false),
-       Pccall(Primitive.make_byte ~name: "caml_nativeint_compare" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_nativeint_compare" ~arity: 2
              ~alloc: false),
-       Pccall(Primitive.make_byte ~name: "caml_int32_compare" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_int32_compare" ~arity: 2
              ~alloc: false),
-       Pccall(Primitive.make_byte ~name: "caml_int64_compare" ~arity: 2
+       Pccall(Primitive.simple ~name: "caml_int64_compare" ~arity: 2
              ~alloc: false),
        false)
 ]
@@ -313,10 +313,10 @@ let index_primitives_table =
 ]
 
 let prim_makearray =
-  Primitive.make_byte ~name: "caml_make_vect" ~arity: 2 ~alloc: true
+  Primitive.simple ~name: "caml_make_vect" ~arity: 2 ~alloc: true
 
 let prim_obj_dup =
-  Primitive.make_byte ~name: "caml_obj_dup" ~arity: 1 ~alloc: true
+  Primitive.simple ~name: "caml_obj_dup" ~arity: 1 ~alloc: true
 
 let find_primitive loc prim_name =
   match prim_name with
