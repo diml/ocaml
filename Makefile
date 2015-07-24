@@ -144,6 +144,8 @@ MIDDLE_END=\
   middle_end/free_variables.cmo \
   middle_end/flambda_iterators.cmo \
   middle_end/flambda_utils.cmo \
+  middle_end/ocaml_of_flambda.cmo \
+  middle_end/pprintflambda.cmo \
   middle_end/inlining_cost.cmo \
   middle_end/effect_analysis.cmo \
   middle_end/freshening.cmo \
