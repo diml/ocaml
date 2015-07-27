@@ -13,6 +13,7 @@
 open Ast_helper
 open Parsetree
 open Asttypes
+open Longident
 
 let noloc txt = { txt; loc = Location.none }
 
@@ -23,12 +24,12 @@ let ident_of_variable v =
     if cu = Compilation_unit.get_current_exn () then
       Lident name
     else
-      Ldot (Lident cu, name)
+      Ldot (Lident (Compilation_unit.get_persistent_ident cu |> Ident.name), name)
   in
   noloc lid
 
-let evar v = ident_of_variable v |> Ext.ident
-let pvar v = ident_of_variable v |> Pat.ident
+let evar v = Exp.ident (ident_of_variable v)
+let pvar v = Pat.var (Variable.unique_name v |> noloc)
 
 let eint n = Exp.constant (Const_int n)
 let pint n = Pat.constant (Const_int n)
@@ -44,22 +45,22 @@ let eapply e l = Exp.apply e (List.map (fun x -> (Nolabel, x)) l)
 
 let static_exception_id se =
   Longident.Lident
-    ("SE" ^ Static_exception.to_int se)
+    ("SE" ^ string_of_int (Static_exception.to_int se))
   |> noloc
 
 let read_var env v =
   match Variable.Map.find v env with
   | exception Not_found -> evar v
-  | Immutable -> evar v
-  | Mutable -> eapply (eid "!") [evar v]
+  | Flambda.Immutable -> evar v
+  | Flambda.Mutable -> eapply (eid "!") [evar v]
 
-let addivar env v = Variable.Map.add v Immutable env
+let addivar env v = Variable.Map.add v Flambda.Immutable env
 
-let extract_constant : Flambda.constant -> expression = function
+let extract_constant : Flambda.const -> expression = function
   | Const_base c -> Exp.constant c
   | Const_pointer n ->
     Exp.extension (noloc "ptr",
-                   Pstr [ Str.eval (eint n) ])
+                   PStr [ Str.eval (eint n) ])
   | Const_float_array l -> Exp.array (List.map efloat l)
   | Const_immstring s -> estring s
   | Const_float f -> efloat (string_of_float f)
@@ -82,50 +83,51 @@ let extract_primitive : Lambda.primitive -> expression = function
                                                         ; eint n ]
   | Psetglobalfield (Exported, n) ->
     eapply (eid "setglobalfield")
-      [ Exp.construct (eid "Exported") None
-      ; eid (Ident.unique_name id) ]
+      [ Exp.construct (noloc @@ Lident "Exported") None
+      ; eint n ]
   | Psetglobalfield (Not_exported, n) ->
     eapply (eid "setglobalfield")
-      [ Exp.construct (eid "Not_exported") None
-      ; eid (Ident.unique_name id) ]
+      [ Exp.construct (noloc @@ Lident "Not_exported") None
+      ; eint n ]
   | Pmakeblock (n, Immutable) ->
     eapply (eid "makeblock")
-      [ eint n; Exp.construct (eid "Immutable") None ]
+      [ eint n; Exp.construct (noloc @@ Lident "Immutable") None ]
   | Pmakeblock (n, Mutable) ->
     eapply (eid "makeblock")
-      [ eint n; Exp.construct (eid "Mutable") None ]
+      [ eint n; Exp.construct (noloc @@ Lident "Mutable") None ]
   | Pfield n -> eapply (eid "field") [ eint n ]
   | Psetfield (n, b) ->
     eapply (eid "makeblock")
-      [ eint n; Exp.construct (eid (string_of_bool b) None ]
+      [ eint n; Exp.construct (noloc @@ Lident (string_of_bool b)) None ]
   | Pfloatfield n -> eapply (eid "floatfield") [ eint n ]
   | Psetfloatfield n -> eapply (eid "setfloatfield") [ eint n ]
-  | _ -> Exp.extension (noloc "todo", Pstr [ Str.eval (eint n) ])
+  | _ -> Exp.extension (noloc "todo", PStr [])
 
 
 let rec extract env (f : Flambda.t) =
   match f with
   | Var v -> evar v
   | Let (let_kind, v, named, f) ->
-    Ext.let_ Nonrecursive
+    Exp.let_ Nonrecursive
       [ Vb.mk (pvar v) (extract_named env named) ]
       (let e = extract (Variable.Map.add v let_kind env) f in
        match let_kind with
        | Immutable -> e
-       | Multiple -> eapply (eid "ref") [e])
+       | Mutable -> eapply (eid "ref") [e])
   | Let_rec (bindings, f) ->
     let env =
       List.fold_left (fun env (v, _) -> addivar env v)
         env bindings
     in
-    Ext.let_ Recursive
+    Exp.let_ Recursive
       (List.map
          (fun (v, named) ->
-            (pvar v, extract_named env named))
+            Vb.mk (pvar v) (extract_named env named))
          bindings)
+      (extract env f)
   | Apply { func; args; (* CR jdimino: deal with [kind] *) _ } ->
     eapply (read_var env func) (List.map (read_var env) args)
-  | Send _ -> Ext.extension (noloc "send", PStr [])
+  | Send _ -> Exp.extension (noloc "send", PStr [])
   | Assign { being_assigned; new_value } ->
     eapply (eid ":=")
       [ read_var env being_assigned
@@ -189,7 +191,7 @@ let rec extract env (f : Flambda.t) =
           (Pat.construct (static_exception_id se)
              (match args with
               | [] -> None
-              | _  -> Some (Exp.tuple (List.map pvar args))))
+              | _  -> Some (Pat.tuple (List.map pvar args))))
           e_catched
       ]
   | Try_with (body, v, catched) ->
@@ -210,10 +212,11 @@ let rec extract env (f : Flambda.t) =
     Exp.assert_ (Exp.construct (noloc (Lident "false")) None)
 
 and extract_named env (n : Flambda.named) =
+  match n with
   | Symbol s ->
     eapply (eid "get_symbol")
-      [ estring (Symbol.compilation_unit s)
-      ; estring (Symbol.linkage_name s)
+      [ estring (Symbol.compilation_unit s |> Compilation_unit.get_persistent_ident |> Ident.name)
+      ; estring (Symbol.label s |> Linkage_name.to_string)
       ]
   | Const n -> extract_constant n
   | Set_of_closures { function_decls; _ } ->
@@ -222,7 +225,7 @@ and extract_named env (n : Flambda.named) =
         function_decls.funs env
     in
     Exp.record
-      (Variable.Map.fold (fun v fd acc ->
+      (Variable.Map.fold (fun v (fd : Flambda.function_declaration) acc ->
          let env = List.fold_left addivar env fd.params in
          let body = extract env fd.body in
          let func =
@@ -230,17 +233,17 @@ and extract_named env (n : Flambda.named) =
              (fun v acc -> Exp.fun_ Nolabel None (pvar v) acc)
              fd.params body
          in
-         (pvar v, func) :: acc)
+         (ident_of_variable v, func) :: acc)
          function_decls.funs [])
       None
   | Project_closure { set_of_closures; closure_id } ->
-    Exp.field (evar env set_of_closures)
+    Exp.field (read_var env set_of_closures)
       (Closure_id.unwrap closure_id |> ident_of_variable)
   | Move_within_set_of_closures _ ->
-    Ext.extension (noloc "move_within_set_of_closures", PStr [])
+    Exp.extension (noloc "move_within_set_of_closures", PStr [])
   | Project_var { closure; closure_id; var } ->
     Exp.field
-      (Exp.field (evar env set_of_closures)
+      (Exp.field (read_var env closure)
          (Closure_id.unwrap closure_id |> ident_of_variable))
       (Var_within_closure.unwrap var |> ident_of_variable)
   | Prim (prim, args, _) ->
