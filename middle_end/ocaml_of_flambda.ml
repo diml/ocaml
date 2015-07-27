@@ -65,55 +65,24 @@ let extract_constant : Flambda.const -> expression = function
   | Const_immstring s -> estring s
   | Const_float f -> efloat (string_of_float f)
 
-let extract_primitive : Lambda.primitive -> expression = function
-  | Pidentity -> eid "identity"
-  | Pignore -> eid "ignore"
-  | Prevapply _ -> eid "revapply"
-  | Pdirapply _ -> eid "dirapply"
-  | Ploc lk ->
-    (match lk with
-     | Loc_FILE -> eid "Loc_FILE"
-     | Loc_LINE -> eid "Loc_LINE"
-     | Loc_MODULE -> eid "Loc_MODULE"
-     | Loc_LOC -> eid "Loc_LOC"
-     | Loc_POS -> eid "Loc_POS")
-  | Pgetglobal id -> eapply (eid "getglobal") [ eid (Ident.unique_name id) ]
-  | Psetglobal id -> eapply (eid "setglobal") [ eid (Ident.unique_name id) ]
-  | Pgetglobalfield (id, n) -> eapply (eid "getglobal") [ eid (Ident.unique_name id)
-                                                        ; eint n ]
-  | Psetglobalfield (Exported, n) ->
-    eapply (eid "setglobalfield")
-      [ Exp.construct (noloc @@ Lident "Exported") None
-      ; eint n ]
-  | Psetglobalfield (Not_exported, n) ->
-    eapply (eid "setglobalfield")
-      [ Exp.construct (noloc @@ Lident "Not_exported") None
-      ; eint n ]
-  | Pmakeblock (n, Immutable) ->
-    eapply (eid "makeblock")
-      [ eint n; Exp.construct (noloc @@ Lident "Immutable") None ]
-  | Pmakeblock (n, Mutable) ->
-    eapply (eid "makeblock")
-      [ eint n; Exp.construct (noloc @@ Lident "Mutable") None ]
-  | Pfield n -> eapply (eid "field") [ eint n ]
-  | Psetfield (n, b) ->
-    eapply (eid "makeblock")
-      [ eint n; Exp.construct (noloc @@ Lident (string_of_bool b)) None ]
-  | Pfloatfield n -> eapply (eid "floatfield") [ eint n ]
-  | Psetfloatfield n -> eapply (eid "setfloatfield") [ eint n ]
-  | _ -> Exp.extension (noloc "todo", PStr [])
-
+let string_of_primitive p =
+  let (_ : string) = Format.flush_str_formatter () in
+  Printlambda.primitive Format.str_formatter p;
+  Format.flush_str_formatter ()
 
 let rec extract env (f : Flambda.t) =
   match f with
   | Var v -> evar v
   | Let (let_kind, v, named, f) ->
+    let e_named =
+      let e_named = extract_named env named in
+      match let_kind with
+      | Immutable -> e_named
+      | Mutable -> eapply (eid "ref") [e_named]
+    in
     Exp.let_ Nonrecursive
-      [ Vb.mk (pvar v) (extract_named env named) ]
-      (let e = extract (Variable.Map.add v let_kind env) f in
-       match let_kind with
-       | Immutable -> e
-       | Mutable -> eapply (eid "ref") [e])
+      [ Vb.mk (pvar v) e_named ]
+      (extract (Variable.Map.add v let_kind env) f)
   | Let_rec (bindings, f) ->
     let env =
       List.fold_left (fun env (v, _) -> addivar env v)
@@ -247,8 +216,9 @@ and extract_named env (n : Flambda.named) =
          (Closure_id.unwrap closure_id |> ident_of_variable))
       (Var_within_closure.unwrap var |> ident_of_variable)
   | Prim (prim, args, _) ->
-    eapply (extract_primitive prim)
-      (List.map (read_var env) args)
+    let s = string_of_primitive prim in
+    eapply (eid "prim")
+      (estring s :: List.map (read_var env) args)
   | Expr f -> extract env f
 
 let extract f = extract Variable.Map.empty f
