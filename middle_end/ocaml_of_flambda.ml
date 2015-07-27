@@ -39,7 +39,10 @@ let pstring s = Pat.constant (Const_string (s, None))
 
 let efloat s = Exp.constant (Const_float s)
 
-let eid s = Exp.ident (noloc (Longident.parse s))
+let lid s = noloc (Longident.parse s)
+
+let eid s = Exp.ident (lid s)
+let tid s = Typ.constr (lid s) []
 
 let eapply e l = Exp.apply e (List.map (fun x -> (Nolabel, x)) l)
 
@@ -65,10 +68,196 @@ let extract_constant : Flambda.const -> expression = function
   | Const_immstring s -> estring s
   | Const_float f -> efloat (string_of_float f)
 
-let string_of_primitive p =
+let array_kind (k : Lambda.array_kind) =
+  let s =
+    match k with
+    | Pgenarray   -> "Pgenarray"
+    | Paddrarray  -> "Paddrarray"
+    | Pintarray   -> "Pintarray"
+    | Pfloatarray -> "Pfloatarray"
+  in
+  Exp.construct (lid s) None
+
+let ba_type (kind : Lambda.bigarray_kind) (layout : Lambda.bigarray_layout) =
+  let caml_type, repr =
+    match kind with
+    | Pbigarray_unknown -> (Typ.any (), Typ.any ())
+    | Pbigarray_float32 -> (tid "float", tid "float32_elt")
+    | Pbigarray_float64 -> (tid "float", tid "float64_elt")
+    | Pbigarray_sint8 -> (tid "int", tid "int8_signed_elt")
+    | Pbigarray_uint8 -> (tid "int", tid "int8_unsigned_elt")
+    | Pbigarray_sint16 -> (tid "int", tid "int8_signed_elt")
+    | Pbigarray_uint16 -> (tid "int", tid "int8_unsigned_elt")
+    | Pbigarray_int32 -> (tid "int", tid "int32_elt")
+    | Pbigarray_int64 -> (tid "int", tid "int32_elt")
+    | Pbigarray_caml_int -> (tid "int", tid "int_elt")
+    | Pbigarray_native_int -> (tid "nativeint", tid "nativeint_elt")
+    | Pbigarray_complex32 -> (tid "Complex.t", tid "complex32_elt")
+    | Pbigarray_complex64 -> (tid "Complex.t", tid "complex64_elt")
+  in
+  let layout =
+    match layout with
+    | Pbigarray_unknown_layout -> Typ.any ()
+    | Pbigarray_c_layout -> tid "c_layout"
+    | Pbigarray_fortran_layout -> tid "fortran_layout"
+  in
+  Typ.constr (lid "Bigarray.t") [caml_type; repr; layout]
+
+let ba_access func unsafe dim kind layout args =
+  let func = if unsafe then "unsafe_" ^ func else func in
+  let m =
+    match dim with
+    | 1 -> "Array1"
+    | 2 -> "Array2"
+    | 3 -> "Array3"
+    | _ -> "Genarray"
+  in
+  let func = Printf.ksprintf eid "Bigarray.%s.%s" m func in
+  let ty = ba_type kind layout in
+  match args with
+  | [] ->
+    Exp.constraint_ func (Typ.arrow Nolabel ty (Typ.any ()))
+  | x :: args ->
+    eapply func (Exp.constraint_ x (ba_type kind layout) :: args)
+
+let extract_primitive (p : Lambda.primitive) args =
   let (_ : string) = Format.flush_str_formatter () in
   Printlambda.primitive Format.str_formatter p;
-  Format.flush_str_formatter ()
+  let s = Format.flush_str_formatter () in
+  match p with
+  | Ploc _
+  | Pidentity | Pignore | Pnot | Prevapply _ | Pdirapply _
+  | Psequand | Psequor | Pnegint | Paddint | Psubint
+  | Pmulint | Pdivint | Pmodint | Pandint | Porint
+  | Pxorint | Plslint | Plsrint | Pasrint
+  | Pintcomp _
+  | Pintoffloat | Pfloatofint
+  | Pnegfloat | Paddfloat | Psubfloat | Pmulfloat | Pdivfloat
+  | Pfloatcomp _
+  | Plazyforce
+  | Pccall _ | Praise _
+  | Pisint | Pisout | Pbittest
+  | Pbintofint _
+  | Pintofbint _
+  | Pcvtbint _
+  | Pnegbint _
+  | Paddbint _
+  | Psubbint _
+  | Pmulbint _
+  | Pdivbint _
+  | Pmodbint _
+  | Pandbint _
+  | Porbint _
+  | Pxorbint _
+  | Plslbint _
+  | Plsrbint _
+  | Pasrbint _
+  | Pbintcomp _
+  | Pbswap16 | Pbbswap _
+  | Pint_as_pointer
+    -> eapply (eid s) args
+
+  | Pabsfloat -> eapply (eid "abs_float") args
+
+  | Pstringlength -> eapply (eid "String.length"    ) args
+  | Pstringrefu   -> eapply (eid "String.unsafe_get") args
+  | Pstringsetu   -> eapply (eid "String.unsafe_set") args
+  | Pstringrefs   -> eapply (eid "String.get"       ) args
+  | Pstringsets   -> eapply (eid "String.set"       ) args
+
+  | Parraylength k -> eapply (eid "Array.length"    ) (array_kind k :: args)
+  | Pmakearray   k -> eapply (eid "Array.make"      ) (array_kind k :: args)
+  | Parrayrefu   k -> eapply (eid "Array.unsafe_get") (array_kind k :: args)
+  | Parraysetu   k -> eapply (eid "Array.unsafe_set") (array_kind k :: args)
+  | Parrayrefs   k -> eapply (eid "Array.get"       ) (array_kind k :: args)
+  | Parraysets   k -> eapply (eid "Array.set"       ) (array_kind k :: args)
+
+  | Pctconst c ->
+    let const_name =
+      match c with
+      | Big_endian    -> "big_endian"
+      | Word_size     -> "word_size"
+      | Int_size      -> "int_size"
+      | Max_wosize    -> "max_wosize"
+      | Ostype_unix   -> "ostype_unix"
+      | Ostype_win32  -> "ostype_win32"
+      | Ostype_cygwin -> "ostype_cygwin"
+    in
+    eapply (eid ("Sys." ^ const_name)) args
+
+  | Pmakeblock(tag, Immutable) -> eapply (eid "makeblock"  ) (eint tag :: args)
+  | Pmakeblock(tag, Mutable  ) -> eapply (eid "makemutable") (eint tag :: args)
+
+  | Pgetglobal id ->
+    eapply (eid "getglobal") (estring (Ident.unique_name id) :: args)
+  | Psetglobal id ->
+    eapply (eid "setglobal") (estring (Ident.unique_name id) :: args)
+  | Pgetglobalfield (id, i) ->
+    eapply (eid "getglobalfield") (estring (Ident.unique_name id) :: eint i :: args)
+  | Psetglobalfield (Exported, i) ->
+    eapply (eid "setglobalfield_exported") (eint i :: args)
+  | Psetglobalfield (Not_exported, i) ->
+    eapply (eid "setglobalfield") (eint i :: args)
+
+  | Pfield n -> eapply (eid "field") (eint n :: args)
+  | Psetfield (n, ptr) ->
+    let instr = if ptr then "setfield_ptr" else "setfield_imm" in
+    eapply (eid instr) (eint n :: args)
+  | Pfloatfield n -> eapply (eid "floatfield") (eint n :: args)
+  | Psetfloatfield n -> eapply (eid "floatfield") (eint n :: args)
+
+  | Pduprecord (rep, size) ->
+    let rep =
+      match rep with
+      | Record_regular   -> Exp.construct (lid "Record_regular"  )  None
+      | Record_float     -> Exp.construct (lid "Record_float"    )  None
+      | Record_inlined n -> Exp.construct (lid "Record_inlined"  ) (Some (eint n))
+      | Record_extension -> Exp.construct (lid "Record_extension")  None
+    in
+    eapply (eid "duprecord") (rep :: eint size :: args)
+
+  | Poffsetint n ->
+    eapply (eid "+" ) (match args with [] -> [eint n] | x :: args -> x :: eint n :: args)
+  | Poffsetref n ->
+    eapply (eid "+=") (match args with [] -> [eint n] | x :: args -> x :: eint n :: args)
+
+  | Pbigarrayref (unsafe, n, kind, layout) ->
+    ba_access "get" unsafe n kind layout args
+  | Pbigarrayset (unsafe, n, kind, layout) ->
+    ba_access "set" unsafe n kind layout args
+
+  | Pbigarraydim n -> eapply (Printf.ksprintf eid "Bigarray.dim_%d" n) args
+
+  | Pstring_load_16(unsafe) ->
+    eapply (eid (if unsafe then "String.unsafe_get16" else "String.get16")) args
+  | Pstring_load_32(unsafe) ->
+    eapply (eid (if unsafe then "String.unsafe_get32" else "String.get32")) args
+  | Pstring_load_64(unsafe) ->
+    eapply (eid (if unsafe then "String.unsafe_get64" else "String.get64")) args
+  | Pstring_set_16(unsafe) ->
+    eapply (eid (if unsafe then "String.unsafe_set16" else "String.set16")) args
+  | Pstring_set_32(unsafe) ->
+    eapply (eid (if unsafe then "String.unsafe_set32" else "String.set32")) args
+  | Pstring_set_64(unsafe) ->
+    eapply (eid (if unsafe then "String.unsafe_set64" else "String.set64")) args
+  | Pbigstring_load_16(unsafe) ->
+    eapply (eid (if unsafe then "Bigarray.Array1.unsafe_get16"
+                 else "Bigarray.Array1.get16")) args
+  | Pbigstring_load_32(unsafe) ->
+    eapply (eid (if unsafe then "Bigarray.Array1.unsafe_get32"
+                 else "Bigarray.Array1.get32")) args
+  | Pbigstring_load_64(unsafe) ->
+    eapply (eid (if unsafe then "Bigarray.Array1.unsafe_get64"
+                 else "Bigarray.Array1.get64")) args
+  | Pbigstring_set_16(unsafe) ->
+    eapply (eid (if unsafe then "Bigarray.Array1.unsafe_set16"
+                 else "Bigarray.Array1.set16")) args
+  | Pbigstring_set_32(unsafe) ->
+    eapply (eid (if unsafe then "Bigarray.Array1.unsafe_set32"
+                 else "Bigarray.Array1.set32")) args
+  | Pbigstring_set_64(unsafe) ->
+    eapply (eid (if unsafe then "Bigarray.array1.unsafe_set64"
+                 else "Bigarray.array1.set64")) args
 
 let rec extract env (f : Flambda.t) =
   match f with
@@ -215,10 +404,7 @@ and extract_named env (n : Flambda.named) =
       (Exp.field (read_var env closure)
          (Closure_id.unwrap closure_id |> ident_of_variable))
       (Var_within_closure.unwrap var |> ident_of_variable)
-  | Prim (prim, args, _) ->
-    let s = string_of_primitive prim in
-    eapply (eid "prim")
-      (estring s :: List.map (read_var env) args)
+  | Prim (prim, args, _) -> extract_primitive prim (List.map (read_var env) args)
   | Expr f -> extract env f
 
 let extract f = extract Variable.Map.empty f
