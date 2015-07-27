@@ -434,6 +434,10 @@ let mk_dflambda f =
   "-dflambda", Arg.Unit f, " (undocumented)"
 ;;
 
+let mk_dflambda_as_ocaml f =
+  "-dflambda-as-ocaml", Arg.Unit f, " (undocumented)"
+;;
+
 let mk_dinstr f =
   "-dinstr", Arg.Unit f, " (undocumented)"
 ;;
@@ -545,6 +549,7 @@ module type Common_options = sig
   val _drawlambda : unit -> unit
   val _dlambda : unit -> unit
   val _dflambda : unit -> unit
+  val _dflambda_as_ocaml : unit -> unit
 
   val anonymous : string -> unit
 end;;
@@ -765,6 +770,7 @@ struct
     mk_drawlambda F._drawlambda;
     mk_dlambda F._dlambda;
     mk_dflambda F._dflambda;
+    mk_dflambda_as_ocaml F._dflambda_as_ocaml;
     mk_dinstr F._dinstr;
     mk_dtimings F._dtimings;
   ]
@@ -810,6 +816,7 @@ struct
     mk_drawlambda F._drawlambda;
     mk_dlambda F._dlambda;
     mk_dflambda F._dflambda;
+    mk_dflambda_as_ocaml F._dflambda_as_ocaml;
     mk_dinstr F._dinstr;
   ]
 end;;
@@ -894,6 +901,7 @@ struct
     mk_dlambda F._dlambda;
     mk_dclambda F._dclambda;
     mk_dflambda F._dflambda;
+    mk_dflambda_as_ocaml F._dflambda_as_ocaml;
     mk_dcmm F._dcmm;
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;
@@ -962,7 +970,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_dtypedtree F._dtypedtree;
     mk_drawlambda F._drawlambda;
     mk_dclambda F._dclambda;
-    mk_dflambda F._dflambda;
+    mk_dflambda_as_ocaml F._dflambda_as_ocaml;
     mk_dcmm F._dcmm;
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;

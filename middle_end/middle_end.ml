@@ -26,6 +26,8 @@ let middle_end ppf ~sourcefile ~prefixname ~backend ~exported_fields lam =
   let dump_and_check s flam =
     if !Clflags.dump_flambda
     then Format.fprintf ppf "%s:@ %a@." s Flambda.print flam;
+    if !Clflags.dump_flambda_as_ocaml
+    then Format.fprintf ppf "%s:@ %a@." s Pprintflambda.flambda flam;
     check flam
   in
   let (++) flam pass =
