@@ -791,7 +791,11 @@ and transl_exp0 e =
         Cstr_constant n ->
           Lconst(Const_pointer n)
       | Cstr_block n ->
-          begin try
+          if cstr.cstr_peano_as_integer then begin
+            assert (n = 0);
+            assert (List.length ll = 1);
+            Lprim(Poffsetint 1, ll)
+          end else begin try
             Lconst(Const_block(n, List.map extract_constant ll))
           with Not_constant ->
             Lprim(Pmakeblock(n, Immutable), ll)

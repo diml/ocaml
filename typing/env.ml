@@ -721,6 +721,8 @@ let find_type_expansion_opt path env =
   (* The manifest type of Private abstract data types can still get
      an approximation using their manifest type. *)
   | Some body -> (decl.type_params, body, may_map snd decl.type_newtype_level)
+  | None when decl.type_peano_as_integer ->
+    (decl.type_params, Predef.type_int, may_map snd decl.type_newtype_level)
   | _ ->
       let path' = normalize_path None env path in
       if Path.same path path' then raise Not_found else

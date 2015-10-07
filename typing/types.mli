@@ -288,6 +288,7 @@ type type_declaration =
     (* covariant, contravariant, weakly contravariant, injective *)
     type_newtype_level: (int * int) option;
     (* definition level * expansion level *)
+    type_peano_as_integer: bool;
     type_loc: Location.t;
     type_attributes: Parsetree.attributes;
   }
@@ -439,6 +440,7 @@ type constructor_description =
     cstr_loc: Location.t;
     cstr_attributes: Parsetree.attributes;
     cstr_inlined: type_declaration option;
+    cstr_peano_as_integer: bool;
    }
 
 and constructor_tag =

@@ -69,6 +69,7 @@ let enter_type env sdecl id =
         | Some _ -> Some(Ctype.newvar ()) end;
       type_variance = List.map (fun _ -> Variance.full) sdecl.ptype_params;
       type_newtype_level = None;
+      type_peano_as_integer = false;
       type_loc = sdecl.ptype_loc;
       type_attributes = sdecl.ptype_attributes;
     }
@@ -293,6 +294,35 @@ let transl_declaration env sdecl id =
         let cty = transl_simple_type env no_row sty in
         Some cty, Some cty.ctyp_type
     in
+    let peano_as_integer =
+      Attr_helper.has_no_payload_attribute [ "peano_as_integer"
+                                           ; "ocaml.peano_as_integer" ]
+        sdecl.ptype_attributes
+    in
+    if peano_as_integer then begin
+      let is_self (ty : Types.type_expr) =
+        match ty.desc with
+        | Tconstr (Path.Pident id', _, _) -> Ident.same id id'
+        | _ -> false
+      in
+      let is_succ : Types.constructor_arguments -> bool = function
+        | Cstr_tuple [ty] -> is_self ty
+        | Cstr_record [ { ld_type = ty } ] -> is_self ty
+        | _ -> false
+      in
+      match kind with
+      | Type_variant
+          [ { cd_args = Cstr_tuple [] }
+          ; { cd_args = ca }
+          ] when is_succ ca -> ()
+      | Type_variant
+          [ { cd_args = ca }
+          ; { cd_args = Cstr_tuple [] }
+          ] when is_succ ca -> ()
+      | _ ->
+        Location.raise_errorf ~loc:sdecl.ptype_loc "invalid use of [@peano_as_integer]"
+    end;
+
     let decl =
       { type_params = params;
         type_arity = List.length params;
@@ -301,6 +331,7 @@ let transl_declaration env sdecl id =
         type_manifest = man;
         type_variance = List.map (fun _ -> Variance.full) params;
         type_newtype_level = None;
+        type_peano_as_integer = peano_as_integer;
         type_loc = sdecl.ptype_loc;
         type_attributes = sdecl.ptype_attributes;
       } in
@@ -337,6 +368,7 @@ let transl_declaration env sdecl id =
       typ_manifest = tman;
       typ_kind = tkind;
       typ_private = sdecl.ptype_private;
+      typ_peano_as_integer = peano_as_integer;
       typ_attributes = sdecl.ptype_attributes;
     }
 
@@ -1517,6 +1549,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
       type_manifest = man;
       type_variance = [];
       type_newtype_level = None;
+      type_peano_as_integer = orig_decl.type_peano_as_integer;
       type_loc = sdecl.ptype_loc;
       type_attributes = sdecl.ptype_attributes;
     }
@@ -1544,6 +1577,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
     typ_manifest = tman;
     typ_kind = Ttype_abstract;
     typ_private = sdecl.ptype_private;
+    typ_peano_as_integer = false;
     typ_attributes = sdecl.ptype_attributes;
   }
 
@@ -1561,6 +1595,7 @@ let abstract_type_decl arity =
       type_manifest = None;
       type_variance = replicate_list Variance.full arity;
       type_newtype_level = None;
+      type_peano_as_integer = false;
       type_loc = Location.none;
       type_attributes = [];
      } in

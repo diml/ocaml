@@ -248,6 +248,7 @@ let type_declaration s decl =
       type_private = decl.type_private;
       type_variance = decl.type_variance;
       type_newtype_level = None;
+      type_peano_as_integer = decl.type_peano_as_integer;
       type_loc = loc s decl.type_loc;
       type_attributes = attrs s decl.type_attributes;
     }

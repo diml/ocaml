@@ -1098,6 +1098,7 @@ let new_declaration newtype manifest =
     type_manifest = manifest;
     type_variance = [];
     type_newtype_level = newtype;
+    type_peano_as_integer = false;
     type_loc = Location.none;
     type_attributes = [];
   }
@@ -4312,6 +4313,7 @@ let nondep_type_decl env mid id is_covariant decl =
       type_private = priv;
       type_variance = decl.type_variance;
       type_newtype_level = None;
+      type_peano_as_integer = decl.type_peano_as_integer;
       type_loc = decl.type_loc;
       type_attributes = decl.type_attributes;
     }

@@ -502,6 +502,7 @@ and type_declaration =
     typ_kind: type_kind;
     typ_private: private_flag;
     typ_manifest: core_type option;
+    typ_peano_as_integer: bool;
     typ_loc: Location.t;
     typ_attributes: attributes;
    }

@@ -1349,6 +1349,8 @@ let make_constr_matching p def ctx = function
       let newargs =
         if cstr.cstr_inlined <> None then
           (arg, Alias) :: argl
+        else if cstr.cstr_peano_as_integer then
+          (Lprim (Poffsetint (-1), [arg]), Alias) :: argl
         else match cstr.cstr_tag with
           Cstr_constant _ | Cstr_block _ ->
             make_field_args Alias arg 0 (cstr.cstr_arity - 1) argl
@@ -2373,8 +2375,14 @@ let combine_constructor arg ex_pat cstr partial ctx def
                 | None,_ -> same_actions nonconsts in
               match act0 with
               | Some act ->
+                  let test =
+                    if cstr.cstr_peano_as_integer then
+                      Lprim (Pintcomp Ceq, [arg; Lconst (Const_pointer 0)])
+                    else
+                      Lprim (Pisint, [arg])
+                  in
                   Lifthenelse
-                    (Lprim (Pisint, [arg]),
+                    (test,
                      call_switcher
                        fail_opt arg
                        0 (n-1) consts,
@@ -2777,7 +2785,6 @@ and compile_no_test divide up_ctx repr partial ctx to_match =
 
 
 
-
 (* The entry points *)
 
 (*
@@ -2874,6 +2881,34 @@ let check_total total lambda i handler_fun =
     Lstaticcatch(lambda, (i,[]), handler_fun())
   end
 
+(*let
+
+let rec rewrite_pat pat =
+  match pat.tpat_desc with
+  | Tpat_any
+  | Tpat_var _
+  | Tpat_constant _ -> pat
+  | Tpat_alias (pat, id, s) ->
+    { pat with tpat_desc = Tpat_alias (pat, id, s) }
+  | Tpat_tuple l ->
+    { pat with tpat_desc = Tpat_tuple (List.map rewrite_pat l) }
+  | Tpat_variant (l, pat, row) ->
+    { pat with tpat_desc = Tpat_variant (l, rewrite_pat pat, row)
+  | Tpat_record (l, cf) ->
+    { pat with tpat_desc = Tpat_record (List.map (fun (id, lbl, pat) ->
+        (id, lbl, rewrite_pat pat) l), cf) }
+  | Tpat_array l ->
+    { pat with tpat_desc = Tpat_array (List.map rewrite_pat l) }
+  | Tpat_or (p1, p2, row) ->
+    { pat with tpat_desc = Tpat_or (rewrite_pat p1, rewrite_pat p2, row) }
+  | Tpat_lazy pat ->
+    { pat with tpat_desc = Tpat_lazy (rewrite_pat pat) }
+  | Tpat_construct (id, cstr, l) ->
+    if cstr.cstr_peano_as_integer then
+
+    else
+      { pat with tpat_desc = Tpat_construct (id, cstr, List.map rewrite_pat l) }
+*)
 let compile_matching loc repr handler_fun arg pat_act_list partial =
   let partial = check_partial pat_act_list partial in
   match partial with

@@ -2811,6 +2811,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
         type_manifest = None;
         type_variance = [];
         type_newtype_level = Some (level, level);
+        type_peano_as_integer = false;
         type_loc = loc;
         type_attributes = [];
       }

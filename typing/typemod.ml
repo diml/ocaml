@@ -175,6 +175,7 @@ let merge_constraint initial_env loc sg constr =
                 )
                 sdecl.ptype_params;
             type_loc = sdecl.ptype_loc;
+            type_peano_as_integer = false;
             type_newtype_level = None;
             type_attributes = [];
           }

@@ -143,6 +143,7 @@ type type_declaration =
     type_manifest: type_expr option;
     type_variance: Variance.t list;
     type_newtype_level: (int * int) option;
+    type_peano_as_integer: bool;
     type_loc: Location.t;
     type_attributes: Parsetree.attributes;
  }
@@ -292,6 +293,7 @@ type constructor_description =
     cstr_loc: Location.t;
     cstr_attributes: Parsetree.attributes;
     cstr_inlined: type_declaration option;
+    cstr_peano_as_integer: bool;
    }
 
 and constructor_tag =

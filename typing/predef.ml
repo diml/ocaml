@@ -104,6 +104,7 @@ let decl_abstr =
    type_manifest = None;
    type_variance = [];
    type_newtype_level = None;
+   type_peano_as_integer = false;
    type_attributes = [];
   }
 
