@@ -448,6 +448,8 @@ and transl_structure fields cc rootpath = function
       let (ids, class_bindings) = transl_class_bindings cl_list in
       Lletrec(class_bindings,
               transl_structure (List.rev_append ids fields) cc rootpath rem)
+  | Tstr_include { incl_mod = { mod_desc = Tmod_structure str } } ->
+      transl_structure fields cc rootpath (str.str_items @ rem)
   | Tstr_include incl ->
       let ids = bound_value_identifiers incl.incl_type in
       let modl = incl.incl_mod in
@@ -512,6 +514,8 @@ let rec defined_idents = function
     | Tstr_class cl_list ->
       List.map (fun (ci, _) -> ci.ci_id_class) cl_list @ defined_idents rem
     | Tstr_class_type cl_list -> defined_idents rem
+    | Tstr_include { incl_mod = { mod_desc = Tmod_structure str } } ->
+      defined_idents (str.str_items @ rem)
     | Tstr_include incl ->
       bound_value_identifiers incl.incl_type @ defined_idents rem
     | Tstr_attribute _ -> defined_idents rem
@@ -559,6 +563,8 @@ and all_idents = function
     | Tstr_class cl_list ->
       List.map (fun (ci, _) -> ci.ci_id_class) cl_list @ all_idents rem
     | Tstr_class_type cl_list -> all_idents rem
+    | Tstr_include { incl_mod = { mod_desc = Tmod_structure str } } ->
+      all_idents (str.str_items @ rem)
     | Tstr_include incl ->
       bound_value_identifiers incl.incl_type @ all_idents rem
     | Tstr_module {mb_id;mb_expr={mod_desc = Tmod_structure str}} ->
@@ -659,6 +665,8 @@ let transl_store_structure glob map prims str =
       let lam = Lletrec(class_bindings, store_idents ids) in
       Lsequence(subst_lambda subst lam,
                 transl_store rootpath (add_idents false ids subst) rem)
+  | Tstr_include { incl_mod = { mod_desc = Tmod_structure str } } ->
+      transl_store rootpath subst (str.str_items @ rem)
   | Tstr_include incl ->
       let ids = bound_value_identifiers incl.incl_type in
       let modl = incl.incl_mod in
@@ -874,9 +882,19 @@ let transl_toplevel_item item =
 let transl_toplevel_item_and_close itm =
   close_toplevel_term (transl_label_init (transl_toplevel_item itm))
 
+let rec transl_toplevel_include_struct = function
+  | [] -> []
+  | { str_desc =
+        Tstr_include { incl_mod = { mod_desc = Tmod_structure str } }
+    } :: rem ->
+    transl_toplevel_include_struct (str.str_items @ rem)
+  | item :: rem ->
+    item :: transl_toplevel_include_struct rem
+
 let transl_toplevel_definition str =
   reset_labels ();
-  make_sequence transl_toplevel_item_and_close str.str_items
+  make_sequence transl_toplevel_item_and_close
+    (transl_toplevel_include_struct str.str_items)
 
 (* Compile the initialization code for a packed library *)
 
