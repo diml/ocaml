@@ -763,7 +763,10 @@ and transl_exp0 e =
       let id = name_pattern "exn" pat_expr_list in
       Ltrywith(transl_exp body, id,
                Matching.for_trywith (Lvar id) (transl_cases_try pat_expr_list))
-  | Texp_tuple el ->
+  | Texp_construct(_, { cstr_transparent = true }, [arg]) ->
+    transl_exp arg
+  | Texp_tuple el
+  | Texp_construct(_, { cstr_transparent = true }, el) ->
       let ll = transl_list el in
       begin try
         Lconst(Const_block(0, List.map extract_constant ll))

@@ -99,6 +99,7 @@ let decl_abstr =
    type_loc = Location.none;
    type_private = Asttypes.Public;
    type_manifest = None;
+   type_transparent = false;
    type_variance = [];
    type_newtype_level = None;
    type_attributes = [];

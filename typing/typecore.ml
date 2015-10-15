@@ -2679,6 +2679,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
         type_kind = Type_abstract;
         type_private = Public;
         type_manifest = None;
+        type_transparent = false;
         type_variance = [];
         type_newtype_level = Some (level, level);
         type_loc = loc;

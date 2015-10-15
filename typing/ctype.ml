@@ -1098,6 +1098,7 @@ let new_declaration newtype manifest =
     type_kind = Type_abstract;
     type_private = Public;
     type_manifest = manifest;
+    type_transparent = false;
     type_variance = [];
     type_newtype_level = newtype;
     type_loc = Location.none;
@@ -4369,6 +4370,11 @@ let nondep_type_decl env mid id is_covariant decl =
       with Not_found when is_covariant ->
         None
     in
+    let tt =
+      match tk with
+      | Type_variant _ | Type_record _ -> decl.type_transparent
+      | _ -> false
+    in
     clear_hash ();
     let priv =
       match tm with
@@ -4379,6 +4385,7 @@ let nondep_type_decl env mid id is_covariant decl =
       type_arity = decl.type_arity;
       type_kind = tk;
       type_manifest = tm;
+      type_transparent = tt;
       type_private = priv;
       type_variance = decl.type_variance;
       type_newtype_level = None;

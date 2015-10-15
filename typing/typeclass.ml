@@ -1218,6 +1218,7 @@ let temp_abbrev loc env id arity =
        type_kind = Type_abstract;
        type_private = Public;
        type_manifest = Some ty;
+       type_transparent = false;
        type_variance = Misc.replicate_list Variance.full arity;
        type_newtype_level = None;
        type_loc = loc;
@@ -1464,6 +1465,7 @@ let class_infos define_class kind
      type_kind = Type_abstract;
      type_private = Public;
      type_manifest = Some obj_ty;
+     type_transparent = false;
      type_variance = List.map (fun _ -> Variance.full) obj_params;
      type_newtype_level = None;
      type_loc = cl.pci_loc;
@@ -1481,6 +1483,7 @@ let class_infos define_class kind
      type_kind = Type_abstract;
      type_private = Public;
      type_manifest = Some cl_ty;
+     type_transparent = false;
      type_variance = List.map (fun _ -> Variance.full) cl_params;
      type_newtype_level = None;
      type_loc = cl.pci_loc;

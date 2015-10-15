@@ -245,6 +245,7 @@ let type_declaration s decl =
             None -> None
           | Some ty -> Some(typexp s ty)
         end;
+      type_transparent = decl.type_transparent;
       type_private = decl.type_private;
       type_variance = decl.type_variance;
       type_newtype_level = None;

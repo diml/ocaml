@@ -72,6 +72,7 @@ let constructor_args cd_args cd_res path rep =
           type_kind = Type_record (lbls, rep);
           type_private = Public;
           type_manifest = None;
+          type_transparent = false; (* CR jdimino: correct? *)
           type_variance = List.map (fun _ -> Variance.full) type_params;
           type_newtype_level = None;
           type_loc = Location.none;
@@ -126,6 +127,7 @@ let constructor_descrs ty_path decl cstrs =
             cstr_loc = cd_loc;
             cstr_attributes = cd_attributes;
             cstr_inlined;
+            cstr_transparent = decl.type_transparent;
           } in
         (cd_id, cstr) :: descr_rem in
   describe_constructors 0 0 cstrs
@@ -154,6 +156,7 @@ let extension_descr path_ext ext =
       cstr_loc = ext.ext_loc;
       cstr_attributes = ext.ext_attributes;
       cstr_inlined;
+      cstr_transparent = false;
     }
 
 let none = {desc = Ttuple []; level = -1; id = -1}

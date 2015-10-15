@@ -141,6 +141,7 @@ type type_declaration =
     type_kind: type_kind;
     type_private: private_flag;
     type_manifest: type_expr option;
+    type_transparent: bool;
     type_variance: Variance.t list;
     type_newtype_level: (int * int) option;
     type_loc: Location.t;
@@ -292,6 +293,7 @@ type constructor_description =
     cstr_loc: Location.t;
     cstr_attributes: Parsetree.attributes;
     cstr_inlined: type_declaration option;
+    cstr_transparent: bool;
    }
 
 and constructor_tag =

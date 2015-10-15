@@ -1187,7 +1187,7 @@ let dummy =
   { type_params = []; type_arity = 0; type_kind = Type_abstract;
     type_private = Public; type_manifest = None; type_variance = [];
     type_newtype_level = None; type_loc = Location.none;
-    type_attributes = [];
+    type_attributes = []; type_transparent = false;
   }
 
 let hide_rec_items = function

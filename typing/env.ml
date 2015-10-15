@@ -657,10 +657,18 @@ let find_type_expansion path env =
    is revealed for the sake of compiler's type-based optimisations. *)
 let find_type_expansion_opt path env =
   let decl = find_type path env in
-  match decl.type_manifest with
+  match decl.type_manifest, decl.type_transparent, decl.type_kind with
   (* The manifest type of Private abstract data types can still get
      an approximation using their manifest type. *)
-  | Some body -> (decl.type_params, body, may_map snd decl.type_newtype_level)
+  | Some body, _, _ -> (decl.type_params, body, may_map snd decl.type_newtype_level)
+  | None, true, Type_record ([ { ld_type = ty } ], _) ->
+    (decl.type_params, ty, may_map snd decl.type_newtype_level)
+  | None, true, Type_variant [ { cd_args = Cstr_tuple [ty] } ] ->
+    (decl.type_params, ty, may_map snd decl.type_newtype_level)
+(* CR-jdimino:
+   | None, false, Type_variant [ { cd_args = Cstr_tuple tyl } ] ->
+   (decl.type_params, ty, may_map snd decl.type_newtype_level)
+*)
   | _ ->
       let path' = normalize_path None env path in
       if Path.same path path' then raise Not_found else

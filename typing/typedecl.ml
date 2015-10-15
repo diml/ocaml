@@ -67,6 +67,7 @@ let enter_type env sdecl id =
       type_manifest =
         begin match sdecl.ptype_manifest with None -> None
         | Some _ -> Some(Ctype.newvar ()) end;
+      type_transparent = false;
       type_variance = List.map (fun _ -> Variance.full) sdecl.ptype_params;
       type_newtype_level = None;
       type_loc = sdecl.ptype_loc;
@@ -292,13 +293,27 @@ let transl_declaration env sdecl id =
         let no_row = not (is_fixed_type sdecl) in
         let cty = transl_simple_type env no_row sty in
         Some cty, Some cty.ctyp_type
-    in
+      in
+    let tsp =
+      match
+        Attr_helper.has_no_payload_attribute ["ocaml.transparent"; "transparent"]
+          sdecl.ptype_attributes,
+        kind
+      with
+      | false, _ -> false
+      | true, (Type_variant [{cd_args = Cstr_tuple _}] | Type_record ([_], _))
+        -> true
+      | true, _ ->
+        Location.raise_errorf ~loc:sdecl.ptype_loc
+          "[@@transparent] not allowed on this type"
+      in
     let decl =
       { type_params = params;
         type_arity = List.length params;
         type_kind = kind;
         type_private = sdecl.ptype_private;
         type_manifest = man;
+        type_transparent = tsp;
         type_variance = List.map (fun _ -> Variance.full) params;
         type_newtype_level = None;
         type_loc = sdecl.ptype_loc;
@@ -1504,11 +1519,19 @@ let transl_with_constraint env id row_path orig_decl sdecl =
   && sdecl.ptype_private = Private then
     Location.prerr_warning sdecl.ptype_loc
       (Warnings.Deprecated "spurious use of private");
+  let kind =
+    if arity_ok && man <> None then orig_decl.type_kind else Type_abstract
+  in
+  let tsp =
+    match kind with
+    | Type_record _ | Type_variant _ -> orig_decl.type_transparent
+    | _ -> false
+  in
   let decl =
     { type_params = params;
       type_arity = List.length params;
-      type_kind =
-        if arity_ok && man <> None then orig_decl.type_kind else Type_abstract;
+      type_kind = kind;
+      type_transparent = tsp;
       type_private = priv;
       type_manifest = man;
       type_variance = [];
@@ -1555,6 +1578,7 @@ let abstract_type_decl arity =
       type_kind = Type_abstract;
       type_private = Public;
       type_manifest = None;
+      type_transparent = false;
       type_variance = replicate_list Variance.full arity;
       type_newtype_level = None;
       type_loc = Location.none;

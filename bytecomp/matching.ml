@@ -2969,7 +2969,37 @@ let check_total total lambda i handler_fun =
     Lstaticcatch(lambda, (i,[]), handler_fun())
   end
 
+let rec simplif pat =
+  match pat.pat_desc with
+  | Tpat_any
+  | Tpat_var _
+  | Tpat_constant _
+  | Tpat_variant (_, None, _)
+    -> pat
+  | Tpat_alias (pat, id, s) ->
+    { pat with pat_desc = Tpat_alias (simplif pat, id, s) }
+  | Tpat_construct (_, { cstr_transparent = true }, [p]) ->
+    simplif p
+  | Tpat_tuple l
+  | Tpat_construct (_, { cstr_transparent = true }, l) ->
+    { pat with pat_desc = Tpat_tuple (List.map simplif l) }
+  | Tpat_construct (id, cstr, l) ->
+    { pat with pat_desc = Tpat_construct (id, cstr, List.map simplif l) }
+  | Tpat_variant (lbl, Some pat, row) ->
+    { pat with pat_desc = Tpat_variant (lbl, Some (simplif pat), row) }
+  | Tpat_record (l, cf) ->
+    { pat with pat_desc =
+                 Tpat_record (List.map (fun (id, ld, p) -> (id, ld, simplif p)) l,
+                              cf) }
+  | Tpat_array l ->
+    { pat with pat_desc = Tpat_array (List.map simplif l) }
+  | Tpat_or (a, b, row) ->
+    { pat with pat_desc = Tpat_or (simplif a, simplif b, row) }
+  | Tpat_lazy p ->
+    { pat with pat_desc = Tpat_lazy (simplif p) }
+
 let compile_matching loc repr handler_fun arg pat_act_list partial =
+  let pat_act_list = List.map (fun (p, a) -> (simplif p, a)) pat_act_list in
   let partial = check_partial pat_act_list partial in
   match partial with
   | Partial ->
@@ -3127,6 +3157,7 @@ let assign_pat opt nraise catch_ids loc pat lam =
   List.fold_left push_sublet exit rev_sublets
 
 let for_let loc param pat body =
+  let pat = simplif pat in
   match pat.pat_desc with
   | Tpat_any | Tpat_var _ ->
       (* fast path *)
@@ -3143,6 +3174,7 @@ let for_let loc param pat body =
 
 (* Easy case since variables are available *)
 let for_tupled_function loc paraml pats_act_list partial =
+  let pats_act_list = List.map (fun (ps, a) -> (List.map simplif ps, a)) pats_act_list in
   let partial = check_partial_list pats_act_list partial in
   let raise_num = next_raise_count () in
   let omegas = [List.map (fun _ -> omega) paraml] in
@@ -3160,7 +3192,7 @@ let for_tupled_function loc paraml pats_act_list partial =
 
 
 
-let flatten_pattern size p = match p.pat_desc with
+let flatten_pattern size p = match (simplif p).pat_desc with
 | Tpat_tuple args -> args
 | Tpat_any -> omegas size
 | _ -> raise Cannot_flatten

@@ -165,6 +165,7 @@ let merge_constraint initial_env loc sg constr =
             type_kind = Type_abstract;
             type_private = Private;
             type_manifest = None;
+            type_transparent = false;
             type_variance =
               List.map
                 (fun (_, v) ->
