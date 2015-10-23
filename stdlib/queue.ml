@@ -19,10 +19,9 @@ exception Empty
    cyclic lists, so as to eliminate the [Nil] case and the sum
    type. *)
 
-type 'a cell = {
-    content: 'a;
-    mutable next: 'a cell
-  }
+type ('a, 'what) cell =
+  | Nil  :                                                        (_ , [> `Nil  ]) cell
+  | Cell : { content: 'a; mutable next: ('a, [ `Cell ]) cell } -> ('a, [> `Cell ]) cell
 
 (* A queue is a reference to either nothing or some cell of a cyclic
    list. By convention, that cell is to be viewed as the last cell in
@@ -39,86 +38,89 @@ type 'a cell = {
 
 type 'a t = {
     mutable length: int;
-    mutable tail: 'a cell
+    mutable tail: ('a, [ `Nil | `Cell ]) cell
   }
 
 let create () = {
   length = 0;
-  tail = Obj.magic None
+  tail = Nil
 }
 
 let clear q =
   q.length <- 0;
-  q.tail <- Obj.magic None
+  q.tail <- Nil
+
+let upcast (Cell _ as cell : (_, [ `Cell ]) cell) = cell
 
 let add x q =
-  if q.length = 0 then
-    let rec cell = {
+  match q.tail with
+  | Nil ->
+    let rec cell = Cell {
       content = x;
       next = cell
     } in
     q.length <- 1;
-    q.tail <- cell
-  else
-    let tail = q.tail in
+    q.tail <- upcast cell
+  | Cell tail ->
     let head = tail.next in
-    let cell = {
+    let cell = Cell {
       content = x;
       next = head
     } in
     q.length <- q.length + 1;
     tail.next <- cell;
-    q.tail <- cell
+    q.tail <- upcast cell
 
 let push =
   add
 
 let peek q =
-  if q.length = 0 then
-    raise Empty
-  else
-    q.tail.next.content
+  match q.tail with
+  | Nil -> raise Empty
+  | Cell { next = Cell { content } } -> content
 
 let top =
   peek
 
 let take q =
-  if q.length = 0 then raise Empty;
-  q.length <- q.length - 1;
-  let tail = q.tail in
-  let head = tail.next in
-  if head == tail then
-    q.tail <- Obj.magic None
-  else
-    tail.next <- head.next;
-  head.content
+  match q.tail with
+  | Nil -> raise Empty
+  | Cell tail ->
+    q.length <- q.length - 1;
+    let (Cell head) = tail.next in
+    if Cell head == q.tail then
+      q.tail <- Nil
+    else
+      tail.next <- head.next;
+    head.content
 
 let pop =
   take
 
 let copy q =
-  if q.length = 0 then
-    create()
-  else
-    let tail = q.tail in
-
-    let rec tail' = {
+  match q.tail with
+  | Nil -> create ()
+  | Cell tail ->
+    let rec tail' = Cell {
       content = tail.content;
       next = tail'
     } in
 
-    let rec copy prev cell =
-      if cell != tail
-      then let res = {
-        content = cell.content;
-        next = tail'
-      } in prev.next <- res;
-      copy res cell.next in
+    let rec copy (Cell prev) cell =
+      if cell != Cell tail
+      then
+        let (Cell cell) = cell in
+        let res = Cell {
+          content = cell.content;
+          next = tail'
+        } in prev.next <- res;
+        copy res cell.next
+    in
 
     copy tail' tail.next;
     {
       length = q.length;
-      tail = tail'
+      tail = upcast tail'
     }
 
 let is_empty q =
@@ -128,38 +130,40 @@ let length q =
   q.length
 
 let iter f q =
-  if q.length > 0 then
-    let tail = q.tail in
-    let rec iter cell =
+  match q.tail with
+  | Nil -> ()
+  | Cell tail ->
+    let rec iter (Cell cell) =
       f cell.content;
-      if cell != tail then
-        iter cell.next in
+      if Cell cell != Cell tail then
+        iter cell.next
+    in
     iter tail.next
 
 let fold f accu q =
-  if q.length = 0 then
-    accu
-  else
-    let tail = q.tail in
-    let rec fold accu cell =
+  match q.tail with
+  | Nil -> accu
+  | Cell tail ->
+    let rec fold accu (Cell cell) =
       let accu = f accu cell.content in
-      if cell == tail then
+      if Cell cell == Cell tail then
         accu
       else
         fold accu cell.next in
     fold accu tail.next
 
 let transfer q1 q2 =
-  let length1 = q1.length in
-  if length1 > 0 then
-    let tail1 = q1.tail in
+  match q1.tail with
+  | Nil -> ()
+  | Cell tail1 ->
     clear q1;
-    if q2.length > 0 then begin
-      let tail2 = q2.tail in
+    begin match q2.tail with
+    | Nil -> ()
+    | Cell tail2 ->
       let head1 = tail1.next in
       let head2 = tail2.next in
       tail1.next <- head2;
       tail2.next <- head1
     end;
-    q2.length <- q2.length + length1;
-    q2.tail <- tail1
+    q2.length <- q2.length + q1.length;
+    q2.tail <- Cell tail1
