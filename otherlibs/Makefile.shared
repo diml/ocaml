@@ -66,7 +66,9 @@ install::
 	cp lib$(CLIBNAME).$(A) $(INSTALL_LIBDIR)/
 	cd $(INSTALL_LIBDIR); $(RANLIB) lib$(CLIBNAME).$(A)
 	cp $(LIBNAME).cma $(CMIFILES) $(CMIFILES:.cmi=.mli) $(INSTALL_LIBDIR)/
-	if test -n "$(HEADERS)"; then cp $(HEADERS) $(INSTALL_LIBDIR)/caml/; fi
+	for i in $(HEADERS); do \
+	  sed -f ../../tools/cleanup-header $$i > $(INSTALL_LIBDIR)/caml/$$i; \
+	done
 
 installopt:
 	cp $(CAMLOBJS_NAT) $(LIBNAME).cmxa $(LIBNAME).$(A) $(INSTALL_LIBDIR)/

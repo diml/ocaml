@@ -266,6 +266,8 @@ Other libraries:
   (Xavier Leroy)
 - PR#7024: in documentation of Str regular expressions, clarify what
     "end of line" means for "^" and "$" regexps.
+- Unix library: install nanosecond_stat.h
+  (Jérémie Dimino)
 
 OCamlbuild:
 - PR#6794, PR#6809: pass package-specific include flags when building C files

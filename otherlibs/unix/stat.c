@@ -20,6 +20,7 @@
 #include <caml/signals.h>
 #include <caml/io.h>
 #include "unixsupport.h"
+#include "nanosecond_stat.h"
 #include "cst2constr.h"
 
 #ifndef S_IFLNK
@@ -48,14 +49,12 @@ static value stat_aux(int use_64, struct stat *buf)
   CAMLparam0();
   CAMLlocal5(atime, mtime, ctime, offset, v);
 
-  #include "nanosecond_stat.h"
   atime = caml_copy_double((double) buf->st_atime
-                           + (NSEC(buf, a) / 1000000000.0));
+                           + (GET_NANOSECOND_STAT(*buf, a) / 1000000000.0));
   mtime = caml_copy_double((double) buf->st_mtime
-                           + (NSEC(buf, m) / 1000000000.0));
+                           + (GET_NANOSECOND_STAT(*buf, m) / 1000000000.0));
   ctime = caml_copy_double((double) buf->st_ctime
-                           + (NSEC(buf, c) / 1000000000.0));
-  #undef NSEC
+                           + (GET_NANOSECOND_STAT(*buf, c) / 1000000000.0));
   offset = use_64 ? Val_file_offset(buf->st_size) : Val_int (buf->st_size);
   v = alloc_small(12, 0);
   Field (v, 0) = Val_int (buf->st_dev);

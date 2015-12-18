@@ -16,13 +16,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define DONT_INCLUDE_CAML_CONFIG_H
 #include "../../otherlibs/unix/nanosecond_stat.h"
 
 int main() {
-  struct stat *buf;
+  struct stat buf;
   double a, m, c;
-  a = (double)NSEC(buf, a);
-  m = (double)NSEC(buf, m);
-  c = (double)NSEC(buf, c);
+  a = (double)GET_NANOSECOND_STAT(buf, a);
+  m = (double)GET_NANOSECOND_STAT(buf, m);
+  c = (double)GET_NANOSECOND_STAT(buf, c);
   return 0;
 }
