@@ -300,6 +300,167 @@ let beta_reduce params body args =
   List.fold_left2 (fun l param arg -> Llet(Strict, param, arg, l))
                   body params args
 
+(* Patterns for [@@peano_as_integer] *)
+
+let simplif_binding (id, lam) =
+  match lam with
+  (* let rec f x = match x with 0 -> Z | Some y -> S (f (n - 1))
+     -->
+     let f x = x
+  *)
+  | Lfunction { kind = Curried
+              ; params = [x]
+              ; attr
+              ; body =
+                  Lifthenelse
+                    (Lprim (Pintcomp Cneq,
+                            [Lvar y; Lconst (Const_base (Const_int 0))]),
+                     Lprim (Poffsetint 1,
+                            [Lapply
+                               { ap_func = Lvar rec_call
+                               ; ap_loc  = _
+                               ; ap_should_be_tailcall = false
+                               ; ap_inlined = _
+                               ; ap_args =
+                                   [Lprim (Psubint,
+                                           [Lvar z
+                                           ; Lconst
+                                               (Const_base (Const_int 1))])]
+                               }]),
+                     Lconst (Const_pointer 0))
+              } when x = y && y = z && rec_call = id ->
+    (id,
+     Lfunction
+       { kind = Curried
+       ; params = [x]
+       ; attr
+       ; body = Lvar x })
+
+  (* let rec f x = match x with Z -> 0 | Some S x -> 1+S (f y)
+     -->
+     let f x = x
+  *)
+  | Lfunction { kind = Curried
+              ; params = [x]
+              ; attr
+              ; body =
+                  Lifthenelse
+                    (Lvar y,
+                     Lprim (Paddint,
+                            [ Lconst (Const_base (Const_int 1))
+                            ; Lapply
+                                { ap_func = Lvar rec_call
+                                ; ap_loc  = _
+                                ; ap_should_be_tailcall = false
+                                ; ap_inlined = _
+                                ; ap_args =
+                                    [Lprim (Poffsetint (-1),
+                                            [Lvar z])]
+                                }]),
+                     Lconst (Const_base (Const_int 0)))
+              } when x = y && y = z && rec_call = id ->
+    (id,
+     Lfunction
+       { kind = Curried
+       ; params = [x]
+       ; attr
+       ; body = Lvar x })
+
+  (*
+     let rec minus n m =
+       match n with
+       | O -> n
+       | S k ->
+         (match m with
+         | O -> n
+         | S l -> minus k l)
+     -->
+     let minus n m = if n < m then 0 else n - m
+  *)
+  | Lfunction { kind = Curried
+              ; params = [n; m]
+              ; attr
+              ; body =
+                  Lifthenelse
+                    (Lvar n1,
+                     Lifthenelse
+                       (Lvar m1,
+                        Lapply
+                            { ap_func = Lvar rec_call
+                            ; ap_loc  = _
+                            ; ap_should_be_tailcall = false
+                            ; ap_inlined = _
+                            ; ap_args =
+                                [ Lprim (Poffsetint (-1),
+                                         [Lvar n2])
+                                ; Lprim (Poffsetint (-1),
+                                         [Lvar m2])
+                                ]
+                            },
+                        Lvar n3),
+                     Lvar n4)
+              }
+    when n = n1 && n1 = n2 && n2 = n3 && n3 = n4 && m = m1 && m1 = m2 && rec_call = id ->
+    (id,
+     Lfunction
+       { kind = Curried
+       ; params = [n; m]
+       ; attr
+       ; body =
+           Lifthenelse
+             (Lprim (Pintcomp Clt, [Lvar n; Lvar m]),
+              Lconst (Const_base (Const_int 0)),
+              Lprim (Psubint, [Lvar n; Lvar m]))
+       })
+
+  (* let rec le_lt_dec n m =
+    match n with
+    | O -> Left
+    | S n0 ->
+      (match m with
+       | O -> Right
+       | S m0 -> le_lt_dec n0 m0)
+    -->
+     let rec le_lt_dec n m = if n <= m then Left else Right
+  *)
+  | Lfunction { kind = Curried
+              ; params = [n; m]
+              ; attr
+              ; body =
+                  Lifthenelse
+                    (Lvar n1,
+                     Lifthenelse
+                       (Lvar m1,
+                        Lapply
+                            { ap_func = Lvar rec_call
+                            ; ap_loc  = _
+                            ; ap_should_be_tailcall = false
+                            ; ap_inlined = _
+                            ; ap_args =
+                                [ Lprim (Poffsetint (-1),
+                                         [Lvar n2])
+                                ; Lprim (Poffsetint (-1),
+                                         [Lvar m2])
+                                ]
+                            },
+                        (Lconst _ as a)),
+                     (Lconst _ as b))
+              }
+    when n = n1 && n1 = n2 && m = m1 && m1 = m2 && rec_call = id ->
+    (id,
+     Lfunction
+       { kind = Curried
+       ; params = [n; m]
+       ; attr
+       ; body =
+           Lifthenelse
+             (Lprim (Pintcomp Clt, [Lvar n; Lvar m]),
+              b,
+              a)
+       })
+
+  | _ -> (id, lam)
+
 (* Simplification of lets *)
 
 let simplify_lets lam =
@@ -482,7 +643,8 @@ let simplify_lets lam =
       end
   | Llet(kind, v, l1, l2) -> mklet(kind, v, simplif l1, simplif l2)
   | Lletrec(bindings, body) ->
-      Lletrec(List.map (fun (v, l) -> (v, simplif l)) bindings, simplif body)
+      Lletrec(List.map (fun (v, l) -> simplif_binding (v, simplif l)) bindings,
+              simplif body)
   | Lprim(p, ll) -> Lprim(p, List.map simplif ll)
   | Lswitch(l, sw) ->
       let new_l = simplif l
