@@ -88,6 +88,11 @@ OCaml 4.04.0:
   (Alain Frisch, request by Edgar Aroutiounian, review by Daniel Bunzli
   and Damien Doligez)
 
+- PR#???: Add the Obj.Ptr module for reading and writing 1, 2, 4 and 8
+  bytes integers outside of the OCaml heap using raw pointers
+  represented by nativeint values. Add compiler support for these
+  primitives as well
+  (Demi Obenour, Jérémie Dimino)
 
 ### Code generation and optimizations:
 
