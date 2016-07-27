@@ -108,6 +108,18 @@ module Ephemeron = struct
   external unset_data: t -> unit = "caml_ephe_unset_data"
   external check_data: t -> bool = "caml_ephe_check_data"
   external blit_data : t -> t -> unit = "caml_ephe_blit_data"
+end
 
+module Pointer = struct
+  type t = nativeint
 
+  external load8 : nativeint -> char = "%load8"
+  external load16 : t -> int = "%load16"
+  external load32 : t -> int32 = "%load32"
+  external load64 : t -> int64 = "%load64"
+
+  external store8 : nativeint -> char -> unit = "%store8"
+  external store16 : t -> int -> unit = "%store16"
+  external store32 : t -> int32 -> unit = "%store32"
+  external store64 : t -> int64 -> unit = "%store64"
 end

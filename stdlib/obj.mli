@@ -150,3 +150,72 @@ module Ephemeron: sig
   val blit_data : t -> t -> unit
   (** Same as {!Ephemeron.K1.blit_data} *)
 end
+
+module Pointer : sig
+  (** Operations on raw pointers.
+
+      This module provides operations on pointers, which represent raw machine
+      addresses.  Any external pointer can be stored in a nativeint and
+      presented back to external code.  Furthermore, pointers can be
+      dereferenced, yielding the contents of the memory location they point to.
+
+      It is almost always a very bad idea to expose pointers in library module
+      interfaces -- they are intended for FFI work, such as accessing C data
+      structures from OCaml without copying.  Libraries that use pointers
+      should use them only to access data allocated by foreign allocators.
+
+      Most users should not use pointers directly.  They are intended for use
+      by higher-level libraries (such as ocaml-ctypes) as a faster alternative
+      to C externals for accessing individual words of foreign data structures.
+
+      If you control where the data is allocated, use the {!Bigarray} module
+      instead, or use other libraries that provide safe abstractions.  The
+      {!Bigarray} module ensures that the data lives as long as the bigarray is
+      alive, and that it is freed when no longer accessible by OCaml code.
+      Like raw pointers, the data contained in a bigarray can be accessed by
+      other code without copying.
+
+      Other libraries that provide higher-level functionality for manipulating
+      foreign data include ocaml-ctypes and cstruct.
+
+      Pointers are {e highly} unsafe.  There is no check (and indeed no way to
+      check) that a pointer actually points to the location in memory that it
+      claims to.  In fact, pointers are even less safe than C pointers, because
+      OCaml pointers are untyped, while C pointers are typed. It is the
+      responsibilty of any code that uses pointers to ensure that such use is
+      safe, even given invalid or malicious input.  If you fail to do so, you
+      will get a crash at best.  If the process is processing untrusted data,
+      a misuse of pointers is likely to result in corruption of memory that
+      allows for an attacker to execute arbitrary code.  Note that this applies
+      to the rest of the {!Obj} module as well.
+
+      @since 4.04.0
+  *)
+
+  (** For the following functions, the pointer need not be aligned with the
+      size of the integer being read/written. *)
+
+  external load8 : nativeint -> char = "%load8"
+  (** Load a byte from the pointer. *)
+
+  external load16 : nativeint -> int = "%load16"
+  (** Load 16 bits from a pointer. *)
+
+  external load32 : nativeint -> int32 = "%load32"
+  (** Load 32 bits from a pointer. *)
+
+  external load64 : nativeint -> int64 = "%load64"
+  (** Load 64 bits from a pointer. *)
+
+  external store8 : nativeint -> char -> unit = "%store8"
+  (** Store a byte to the pointed memory location. *)
+
+  external store16 : nativeint -> int -> unit = "%store16"
+  (** Store 16 bits to the pointed memory location. *)
+
+  external store32 : nativeint -> int32 -> unit = "%store32"
+  (** Store 32 bits to the pointed memory location. *)
+
+  external store64 : nativeint -> int64 -> unit = "%store64"
+  (** Store 64 bits to the pointed memory location. *)
+end
