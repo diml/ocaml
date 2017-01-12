@@ -46,9 +46,9 @@ let initial_env () =
      The list is reversed to open the modules in the left-to-right order *)
   let to_open = List.rev !Clflags.open_modules in
   let to_open =
-    if Env.get_unit_name () = "Pervasives"
+    if Env.get_unit_name () = "Stdlib"
     then to_open
-    else "Pervasives" :: to_open
+    else "Stdlib" :: to_open
   in
   List.fold_left open_mod initial to_open
 

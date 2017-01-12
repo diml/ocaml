@@ -57,7 +57,7 @@ let initial_env () =
   in
   let env =
     if !Clflags.nopervasives then initial else
-    open_implicit_module "Pervasives" initial
+    open_implicit_module "Stdlib" initial
   in
   List.fold_left (fun env m ->
     open_implicit_module m env

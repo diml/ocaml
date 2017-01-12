@@ -174,7 +174,7 @@
 
 /otherlibs/dynlink/extract_crc
 /otherlibs/threads/marshal.mli
-/otherlibs/threads/pervasives.mli
+/otherlibs/threads/stdlib.mli
 /otherlibs/threads/unix.mli
 /otherlibs/win32graph/graphics.ml
 /otherlibs/win32graph/graphics.mli

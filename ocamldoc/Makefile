@@ -237,10 +237,10 @@ $(OCAMLDOC_LIBCMXA): $(LIBCMXFILES)
 	$(OCAMLOPT) -a -o $@ $(LINKFLAGS) $^
 
 .PHONY: manpages
-manpages: stdlib_man/Pervasives.3o
+manpages: stdlib_man/Stdlib.3o
 
 .PHONY: html_doc
-html_doc: stdlib_html/Pervasives.html
+html_doc: stdlib_html/Stdlib.html
 
 .PHONY: dot
 dot: ocamldoc.dot
@@ -341,7 +341,7 @@ test:
 test_stdlib:
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -html -colorize-code -sort -d $@ $(INCLUDES) -dump $@/stdlib.odoc -keep-code \
-	../stdlib/pervasives.ml ../stdlib/*.mli \
+	../stdlib/*.mli \
 	../otherlibs/$(UNIXLIB)/unix.mli \
 	../otherlibs/str/str.mli
 
@@ -384,22 +384,24 @@ test_texi:
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -texi -sort -d $@ $(INCLUDES) odoc*.ml odoc*.mli
 
-stdlib_man/Pervasives.3o: $(OCAMLDOC) $(STDLIB_MLIS)
+stdlib_man/Stdlib.3o: $(OCAMLDOC) $(STDLIB_MLIS)
 	$(MKDIR) stdlib_man
 	$(OCAMLDOC_RUN) -man -d stdlib_man $(INCLUDES) \
-	-t "OCaml library" -man-mini $(STDLIB_MLIS)
+	-t "OCaml library" -man-mini $(STDLIB_MLIS) \
+	-pp "awk -f ../stdlib/remove_module_aliases.awk"
 
-stdlib_html/Pervasives.html: $(STDLIB_MLIS)
+stdlib_html/Stdlib.html: $(STDLIB_MLIS)
 	$(MKDIR) stdlib_html
 	$(OCAMLDOC_RUN) -d stdlib_html -html $(INCLUDES) \
-	-t "OCaml library" $^
+	-t "OCaml library" $^ \
+	-pp "awk -f ../stdlib/remove_module_aliases.awk"
 
 .PHONY: autotest_stdlib
 autotest_stdlib:
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -g autotest/odoc_test.cmo\
 	$(INCLUDES) -keep-code \
-	../stdlib/pervasives.ml ../stdlib/*.mli \
+	../stdlib/*.mli \
 	../otherlibs/$(UNIXLIB)/unix.mli \
 	../otherlibs/str/str.mli
 

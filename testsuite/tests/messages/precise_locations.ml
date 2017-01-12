@@ -66,7 +66,7 @@ end);;
    on "open List" as whole rather than "List" *)
 [%%expect{|
 Line _, characters 0-9:
-Error (warning 33): unused open List.
+Error (warning 33): unused open Stdlib.List.
 |}];;
 
 type unknown += Foo;;
