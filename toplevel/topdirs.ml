@@ -535,11 +535,37 @@ let () =
     )
     "Print the signature of the corresponding value."
 
+let type_is_recursive =
+  let module S = Set.Make(Path) in
+  let exception Rec in
+  fun env path td ->
+  let seen = ref (S.singleton path) in
+  let super = Btype.type_iterators in
+  let it_type_expr self type_expr =
+    (match type_expr.desc with
+     | Tconstr (path', _, _) when Path.same path path' ->
+       raise_notrace Rec
+     | Tconstr (path, _, _) ->
+       if not (S.mem path !seen) then begin
+         seen := S.add path !seen;
+         self.Btype.it_type_declaration self (Env.find_type path env)
+       end
+     | _ -> ());
+    super.Btype.it_type_expr self type_expr
+  in
+  let iter = { super with Btype.it_type_expr } in
+  match iter.Btype.it_type_declaration iter td with
+  | () -> false
+  | exception Rec -> true
+
 let () =
   reg_show_prim "show_type"
     (fun env loc id lid ->
-       let _path, desc = Typetexp.find_type env loc lid in
-       [ Sig_type (id, desc, Trec_not) ]
+       let path, desc = Typetexp.find_type env loc lid in
+       let rec_status =
+         if type_is_recursive env path desc then Trec_first else  Trec_not
+       in
+       [ Sig_type (id, desc, rec_status) ]
     )
     "Print the signature of the corresponding type constructor."
 
@@ -566,14 +592,40 @@ let () =
     )
     "Print the signature of the corresponding exception."
 
+let module_is_recursive =
+  let module S = Set.Make(Path) in
+  let exception Rec in
+  fun env path md ->
+  let seen = ref (S.singleton path) in
+  let super = Btype.type_iterators in
+  let rec it_path path' =
+    if Path.same path path' then raise_notrace Rec;
+    if not (S.mem path' !seen) then begin
+      seen := S.add path' !seen;
+      match Env.find_module path' env with
+      | exception Not_found -> ()
+      | md -> iter.Btype.it_module_declaration iter md
+    end;
+    match path' with
+    | Path.Pident _ -> ()
+    | Path.Pdot (parent, _, _) -> it_path parent
+    | Path.Papply (a, b) -> it_path a; it_path b
+  and iter = { super with Btype.it_path } in
+  match iter.Btype.it_module_declaration iter md with
+  | () -> false
+  | exception Rec -> true
+
 let () =
   reg_show_prim "show_module"
     (fun env loc id lid ->
        let rec accum_aliases path acc =
          let md = Env.find_module path env in
+         let rec_status =
+           if module_is_recursive env path md then Trec_first else  Trec_not
+         in
          let acc =
            Sig_module (id, {md with md_type = trim_signature md.md_type},
-                       Trec_not) :: acc in
+                       rec_status) :: acc in
          match md.md_type with
          | Mty_alias(_, path) -> accum_aliases path acc
          | Mty_ident _ | Mty_signature _ | Mty_functor _ ->
