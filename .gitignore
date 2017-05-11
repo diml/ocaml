@@ -157,6 +157,7 @@
 
 /ocamldoc/ocamldoc
 /ocamldoc/ocamldoc.opt
+/ocamldoc/odoc
 /ocamldoc/odoc_crc.ml
 /ocamldoc/odoc_lexer.ml
 /ocamldoc/odoc_ocamlhtml.ml
@@ -220,7 +221,6 @@
 /parsing/parser.conflicts
 
 /stdlib/camlheader
-/stdlib/html
 /stdlib/target_camlheader
 /stdlib/camlheader[di]
 /stdlib/target_camlheader[di]

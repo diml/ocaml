@@ -265,7 +265,6 @@ clean::
 	rm -f *.cm* *.$(O) *.$(A) *.odoc
 	rm -f *~
 	rm -f camlheader*
-	rm -rf html
 
 include .depend
 
@@ -289,19 +288,3 @@ depend:
 	  's#(^| )(${subst ${SPACE},|,${PREFIXED_OBJS:stdlib__%.cmo=%}})[.]#\1stdlib__\2.#g' \
 	  .depend.tmp > .depend
 	rm -f .depend.tmp
-
-# odoc rules
-
-# The dependency is in fact on the .cmi, but depending on the .cmti
-# doesn't work well for some reason
-%.odoc: %.cmi
-	odoc compile -I . --package stdlib ${<:%.cmi=%.cmti}
-
-html/stdlib/index.html: $(PREFIXED_OBJS:.cmo=.odoc) stdlib.odoc index.mld
-	rm -rf html
-	mkdir html
-	odoc html -I . --output-dir html stdlib.odoc
-	odoc html -I . --output-dir html --index-for=stdlib index.mld
-	odoc css -o html
-
-odoc: html/stdlib/index.html
