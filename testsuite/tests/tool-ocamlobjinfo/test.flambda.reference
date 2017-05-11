@@ -21,18 +21,18 @@ Interfaces imported:
 	<MD5>	CamlinternalFormatBasics
 	<MD5>	CamlinternalBigarray
 Implementations imported:
+	<MD5>	CamlinternalFormat
 	<MD5>	Stdlib__random
+	<MD5>	CamlinternalLazy
 	<MD5>	Stdlib__hashtbl
 	<MD5>	Stdlib__array
 	<MD5>	Stdlib__list
 	<MD5>	Stdlib__bytes
+	<MD5>	Stdlib
 	<MD5>	Stdlib__sys
 	<MD5>	Stdlib__printexc
 	<MD5>	Stdlib__printf
 	<MD5>	Stdlib__callback
-	<MD5>	Stdlib
-	<MD5>	CamlinternalFormat
-	<MD5>	CamlinternalLazy
 Name: UnixLabels
 CRC of implementation: <MD5>
 Globals defined:
