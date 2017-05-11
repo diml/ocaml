@@ -31,6 +31,7 @@
 *.out
 *.out.dSYM
 *.swp
+*.odoc
 
 # local to root directory
 
@@ -219,6 +220,7 @@
 /parsing/parser.conflicts
 
 /stdlib/camlheader
+/stdlib/html
 /stdlib/target_camlheader
 /stdlib/camlheader[di]
 /stdlib/target_camlheader[di]

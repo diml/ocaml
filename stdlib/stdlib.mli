@@ -13,6 +13,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
+(** The initially opened module *)
 module Pervasives : sig
 (** The initially opened module.
 

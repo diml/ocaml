@@ -52,7 +52,7 @@ OTHERS=$(P)list.cmo $(P)char.cmo $(P)uchar.cmo $(P)bytes.cmo $(P)string.cmo \
   $(P)arrayLabels.cmo $(P)listLabels.cmo $(P)bytesLabels.cmo \
   $(P)stringLabels.cmo $(P)moreLabels.cmo $(P)stdLabels.cmo \
   $(P)spacetime.cmo camlinternalBigarray.cmo
-PREFIXED_MODULES=$(patsubst stdlib__%.cmo,%,$(OBJS))
+PREFIXED_OBJS=$(filter stdlib__%.cmo,$(OBJS))
 
 .PHONY: all
 all: stdlib.cma std_exit.cmo camlheader target_camlheader camlheader_ur
@@ -262,9 +262,10 @@ $(OTHERS:.cmo=.cmx) std_exit.cmx: stdlib.cmx
 $(OTHERS:.cmo=.p.cmx) std_exit.p.cmx: stdlib.p.cmx
 
 clean::
-	rm -f *.cm* *.$(O) *.$(A)
+	rm -f *.cm* *.$(O) *.$(A) *.odoc
 	rm -f *~
 	rm -f camlheader*
+	rm -rf html
 
 include .depend
 
@@ -285,6 +286,22 @@ depend:
 	$(CAMLDEP) -slash -pp "awk -f remove_module_aliases.awk" stdlib.ml \
 	  | sed -e 's/\.cmx : /.p.cmx : /g' >> .depend.tmp
 	sed -re \
-	  's#(^| )(${subst ${SPACE},|,${PREFIXED_MODULES}})[.]#\1stdlib__\2.#g' \
+	  's#(^| )(${subst ${SPACE},|,${PREFIXED_OBJS:stdlib__%.cmo=%}})[.]#\1stdlib__\2.#g' \
 	  .depend.tmp > .depend
 	rm -f .depend.tmp
+
+# odoc rules
+
+# The dependency is in fact on the .cmi, but depending on the .cmti
+# doesn't work well for some reason
+%.odoc: %.cmi
+	odoc compile -I . --package stdlib ${<:%.cmi=%.cmti}
+
+html/stdlib/index.html: $(PREFIXED_OBJS:.cmo=.odoc) stdlib.odoc index.mld
+	rm -rf html
+	mkdir html
+	odoc html -I . --output-dir html stdlib.odoc
+	odoc html -I . --output-dir html --index-for=stdlib index.mld
+	odoc css -o html
+
+odoc: html/stdlib/index.html
