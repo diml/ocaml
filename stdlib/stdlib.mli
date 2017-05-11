@@ -13,17 +13,21 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** The initially opened module *)
+(** The OCaml Standard library.
+
+    This module is automatically opened at the beginning of each
+    compilation. All components of this module can therefore be
+    referred by their short name, without prefixing them by [Stdlib].
+*)
+
 module Pervasives : sig
-(** The initially opened module.
+(** Pervasives operations.
 
-   This module provides the basic operations over the built-in types
-   (numbers, booleans, byte sequences, strings, exceptions, references,
-   lists, arrays, input-output channels, ...).
+    This module provides the basic operations over the built-in types
+    (numbers, booleans, byte sequences, strings, exceptions, references,
+    lists, arrays, input-output channels, ...).
 
-   This module is automatically opened at the beginning of each compilation.
-   All components of this module can therefore be referred by their short
-   name, without prefixing them by [Pervasives].
+    This module is included in the toplevel {!Stdlib} module.
 *)
 
 
