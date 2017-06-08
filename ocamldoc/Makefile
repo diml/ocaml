@@ -447,7 +447,7 @@ stdlib_non_prefixed/%.mli: ../otherlibs/num/%.mli
 	cp $< $@
 
 stdlib_non_prefixed/pervasives.mli: ../stdlib/stdlib.mli stdlib_non_prefixed/extract_pervasives.awk
-	awk -f stdlib_non_prefixed/extract_pervasives.awk $< > $@
+	$(AWK) -f stdlib_non_prefixed/extract_pervasives.awk $< > $@
 
 stdlib_non_prefixed/pervasives.cmi: stdlib_non_prefixed/pervasives.mli
 	$(OCAMLC_SNP) -c $<
