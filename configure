@@ -2043,6 +2043,7 @@ echo "FLAMBDA=$flambda" >> Makefile
 echo "SAFE_STRING=$safe_string" >> Makefile
 echo "AFL_INSTRUMENT=$afl_instrument" >> Makefile
 echo "MAX_TESTSUITE_DIR_RETRIES=$max_testsuite_dir_retries" >> Makefile
+echo "AWK=awk" >> Makefile
 
 
 rm -f tst hasgot.c
