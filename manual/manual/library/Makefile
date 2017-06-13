@@ -1,6 +1,14 @@
 CORE_INTF=Pervasives.tex
 
-STDLIB_INTF=Arg.tex Array.tex ArrayLabels.tex Char.tex Complex.tex \
+CSLDIR=$(RELEASEDIR)
+P :=
+include $(CSLDIR)/stdlib/StdlibModules
+MLIDIR=$(CSLDIR)/ocamldoc/stdlib_non_prefixed/
+
+STDLIB_MODULES := pervasives $(filter-out stdlib,$(STDLIB_MODULES))
+PARSING_MLIS := $(wildcard $(CSLDIR)/parsing/*.mli)
+
+STDLIB_INTF= Arg.tex Array.tex ArrayLabels.tex Char.tex Complex.tex \
   Digest.tex Filename.tex Format.tex \
   Gc.tex Genlex.tex Hashtbl.tex Int32.tex Int64.tex \
   Lazy.tex Lexing.tex List.tex ListLabels.tex Map.tex Marshal.tex \
@@ -19,22 +27,30 @@ OTHERLIB_INTF=Unix.tex UnixLabels.tex Str.tex \
   Thread.tex Mutex.tex Condition.tex Event.tex ThreadUnix.tex \
   Dynlink.tex Bigarray.tex
 
-
 INTF=$(CORE_INTF) $(STDLIB_INTF) $(COMPILER_LIBS_INTF) $(OTHERLIB_INTF)
 
-MLIS=$(CSLDIR)/stdlib/*.mli \
-	$(CSLDIR)/utils/*.mli \
-	$(CSLDIR)/parsing/*.mli \
-	$(CSLDIR)/otherlibs/bigarray/bigarray.mli \
-	$(CSLDIR)/otherlibs/dynlink/dynlink.mli \
-	$(CSLDIR)/otherlibs/graph/graphics.mli \
-	$(CSLDIR)/otherlibs/graph/graphicsX11.mli \
-	$(CSLDIR)/otherlibs/num/num.mli \
-	$(CSLDIR)/otherlibs/num/arith_status.mli \
-	$(CSLDIR)/otherlibs/num/big_int.mli \
-	$(CSLDIR)/otherlibs/str/*.mli \
-	$(CSLDIR)/otherlibs/systhreads/*.mli \
-	$(CSLDIR)/otherlibs/unix/*.mli
+
+MLIS= $(STDLIB_MODULES:%=%.mli) \
+  $(PARSING_MLIS:$(CSLDIR)/parsing/%.mli=%.mli) \
+  unix.mli \
+  unixLabels.mli \
+  str.mli \
+  bigarray.mli \
+  num.mli \
+  arith_status.mli \
+  nat.mli \
+  big_int.mli \
+  ratio.mli \
+  graphics.mli \
+  graphicsX11.mli \
+  dynlink.mli \
+  thread.mli \
+  mutex.mli \
+  condition.mli \
+  event.mli \
+  threadUnix.mli
+
+MLIS:=$(addprefix $(MLIDIR), $(MLIS))
 
 BLURB=core.tex builtin.tex stdlib.tex compilerlibs.tex \
   libunix.tex libstr.tex libnum.tex libgraph.tex \
@@ -45,9 +61,9 @@ FILES=$(BLURB) $(INTF)
 FORMAT=../../tools/format-intf
 TEXQUOTE=../../tools/texquote2
 
-CSLDIR=$(RELEASEDIR)
 
-VPATH=.:$(CSLDIR)/stdlib:$(CSLDIR)/parsing:$(CSLDIR)/otherlibs/unix:$(CSLDIR)/otherlibs/str:$(CSLDIR)/otherlibs/num:$(CSLDIR)/otherlibs/graph:$(CSLDIR)/otherlibs/threads:$(CSLDIR)/otherlibs/dynlink:$(CSLDIR)/otherlibs/bigarray
+
+VPATH=.:$(STDLIB_DIR):$(CSLDIR)/parsing:$(CSLDIR)/otherlibs/unix:$(CSLDIR)/otherlibs/str:$(CSLDIR)/otherlibs/num:$(CSLDIR)/otherlibs/graph:$(CSLDIR)/otherlibs/threads:$(CSLDIR)/otherlibs/dynlink:$(CSLDIR)/otherlibs/bigarray
 
 etex-files: $(BLURB)
 all: libs
@@ -55,18 +71,12 @@ all: libs
 
 libs: $(FILES)
 
+OCAMLDOC = $(CSLDIR)/byterun/ocamlrun $(CSLDIR)/ocamldoc/ocamldoc -latex \
+-nostdlib -initially-opened-module Pervasives
+
 $(INTF): $(MLIS)
-	$(CSLDIR)/byterun/ocamlrun $(CSLDIR)/ocamldoc/ocamldoc -latex \
-	-I $(CSLDIR)/utils \
-	-I $(CSLDIR)/stdlib \
-	-I $(CSLDIR)/parsing \
-	-I $(CSLDIR)/otherlibs/bigarray \
-	-I $(CSLDIR)/otherlibs/dynlink \
-	-I $(CSLDIR)/otherlibs/graph \
-	-I $(CSLDIR)/otherlibs/num \
-	-I $(CSLDIR)/otherlibs/str \
-	-I $(CSLDIR)/otherlibs/systhreads \
-	-I $(CSLDIR)/otherlibs/unix \
+	 $(OCAMLDOC) \
+	-I $(MLIDIR) \
 	$(MLIS) \
 	-sepfiles \
 	-latextitle "6,subsection*" \
