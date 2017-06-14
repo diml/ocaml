@@ -1,12 +1,6 @@
 CORE_INTF=Pervasives.tex
 
 CSLDIR=$(RELEASEDIR)
-P :=
-include $(CSLDIR)/stdlib/StdlibModules
-MLIDIR=$(CSLDIR)/ocamldoc/stdlib_non_prefixed/
-
-STDLIB_MODULES := pervasives $(filter-out stdlib,$(STDLIB_MODULES))
-PARSING_MLIS := $(wildcard $(CSLDIR)/parsing/*.mli)
 
 STDLIB_INTF= Arg.tex Array.tex ArrayLabels.tex Char.tex Complex.tex \
   Digest.tex Filename.tex Format.tex \
@@ -29,29 +23,6 @@ OTHERLIB_INTF=Unix.tex UnixLabels.tex Str.tex \
 
 INTF=$(CORE_INTF) $(STDLIB_INTF) $(COMPILER_LIBS_INTF) $(OTHERLIB_INTF)
 
-
-MLIS= $(STDLIB_MODULES:%=%.mli) \
-  $(PARSING_MLIS:$(CSLDIR)/parsing/%.mli=%.mli) \
-  unix.mli \
-  unixLabels.mli \
-  str.mli \
-  bigarray.mli \
-  num.mli \
-  arith_status.mli \
-  nat.mli \
-  big_int.mli \
-  ratio.mli \
-  graphics.mli \
-  graphicsX11.mli \
-  dynlink.mli \
-  thread.mli \
-  mutex.mli \
-  condition.mli \
-  event.mli \
-  threadUnix.mli
-
-MLIS:=$(addprefix $(MLIDIR), $(MLIS))
-
 BLURB=core.tex builtin.tex stdlib.tex compilerlibs.tex \
   libunix.tex libstr.tex libnum.tex libgraph.tex \
   libthreads.tex libdynlink.tex libbigarray.tex
@@ -60,8 +31,6 @@ FILES=$(BLURB) $(INTF)
 
 FORMAT=../../tools/format-intf
 TEXQUOTE=../../tools/texquote2
-
-
 
 VPATH=.:$(STDLIB_DIR):$(CSLDIR)/parsing:$(CSLDIR)/otherlibs/unix:$(CSLDIR)/otherlibs/str:$(CSLDIR)/otherlibs/num:$(CSLDIR)/otherlibs/graph:$(CSLDIR)/otherlibs/threads:$(CSLDIR)/otherlibs/dynlink:$(CSLDIR)/otherlibs/bigarray
 
@@ -74,10 +43,14 @@ libs: $(FILES)
 OCAMLDOC = $(CSLDIR)/byterun/ocamlrun $(CSLDIR)/ocamldoc/ocamldoc -latex \
 -nostdlib -initially-opened-module Pervasives
 
-$(INTF): $(MLIS)
+# Copy and unprefix the standard library when needed
+SRC=../../..
+include $(SRC)/ocamldoc/Makefile.unprefix
+
+$(INTF):  $(STDLIB_CMIS)
 	 $(OCAMLDOC) \
-	-I $(MLIDIR) \
-	$(MLIS) \
+	-I $(STDLIB_UNPREFIXED) \
+	$(STDLIB_MLIS) \
 	-sepfiles \
 	-latextitle "6,subsection*" \
 	-latextitle "7,subsubsection*" \
@@ -103,7 +76,6 @@ Tk.tex: tk.mli
 
 clean:
 	rm -f $(FILES)
-
 
 .SUFFIXES:
 .SUFFIXES: .tex .etex .mli

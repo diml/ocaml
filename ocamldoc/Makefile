@@ -180,38 +180,6 @@ LIBCMOFILES = $(CMOFILES)
 LIBCMXFILES = $(LIBCMOFILES:.cmo=.cmx)
 LIBCMIFILES = $(LIBCMOFILES:.cmo=.cmi)
 
-P :=
-include ../stdlib/StdlibModules
-
-STDLIB_MODULES := pervasives $(filter-out stdlib,$(STDLIB_MODULES))
-PARSING_MLIS := $(wildcard ../parsing/*.mli)
-
-STDLIB_MLIS=\
-  $(STDLIB_MODULES:%=%.mli) \
-  $(PARSING_MLIS:../parsing/%.mli=%.mli) \
-  warnings.mli \
-  unix.mli \
-  unixLabels.mli \
-  str.mli \
-  bigarray.mli \
-  num.mli \
-  arith_status.mli \
-  nat.mli \
-  big_int.mli \
-  ratio.mli \
-  graphics.mli \
-  graphicsX11.mli \
-  dynlink.mli \
-  thread.mli \
-  mutex.mli \
-  condition.mli \
-  event.mli \
-  threadUnix.mli
-
-STDLIB_MLIS:=$(addprefix stdlib_non_prefixed/, $(STDLIB_MLIS))
-
-
-STDLIB_CMIS=$(STDLIB_MLIS:%.mli=%.cmi)
 
 .PHONY: all
 all: lib exe generators manpages
@@ -409,6 +377,11 @@ test_texi:
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -texi -sort -d $@ $(INCLUDES) odoc*.ml odoc*.mli
 
+# stdlib non-prefixed :
+#######################
+SRC=$(ROOTDIR)
+include Makefile.unprefix
+
 stdlib_man/Stdlib.3o: $(OCAMLDOC) $(STDLIB_MLIS) $(STDLIB_CMIS)
 	$(MKDIR) stdlib_man
 	$(OCAMLDOC_RUN) -man -d stdlib_man -nostdlib -I stdlib_non_prefixed \
@@ -430,56 +403,6 @@ autotest_stdlib:
 	../otherlibs/$(UNIXLIB)/unix.mli \
 	../otherlibs/str/str.mli
 
-# stdlib non-prefixed :
-#######################
-
-OCAMLC_SNP = $(OCAMLRUN) $(ROOTDIR)/ocamlc -nostdlib -nopervasives -I stdlib_non_prefixed
-
-stdlib_non_prefixed/%.mli: ../stdlib/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/camlinternalBigarray.mli: ../stdlib/camlinternalBigarray.ml
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../parsing/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../utils/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../otherlibs/$(UNIXLIB)/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../otherlibs/str/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../otherlibs/bigarray/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../otherlibs/num/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../otherlibs/graph/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../otherlibs/threads/%.mli
-	cp $< $@
-
-stdlib_non_prefixed/%.mli: ../otherlibs/dynlink/%.mli
-	cp $< $@
-
-
-stdlib_non_prefixed/pervasives.mli: ../stdlib/stdlib.mli stdlib_non_prefixed/extract_pervasives.awk
-	$(AWK) -f stdlib_non_prefixed/extract_pervasives.awk $< > $@
-
-stdlib_non_prefixed/pervasives.cmi: stdlib_non_prefixed/pervasives.mli
-	$(OCAMLC_SNP) -c $<
-
-stdlib_non_prefixed/camlinternalFormatBasics.cmi: stdlib_non_prefixed/camlinternalFormatBasics.mli
-	$(OCAMLC_SNP) -c $<
-
-stdlib_non_prefixed/%.cmi: stdlib_non_prefixed/%.mli stdlib_non_prefixed/pervasives.cmi
-	$(OCAMLC_SNP) -c -open Pervasives $<
 
 # odoc rules :
 ##############
@@ -542,6 +465,5 @@ depend:
 	$(OCAMLLEX) odoc_see_lexer.mll
 	$(OCAMLDEP) $(INCLUDES_DEP) *.mll *.mly *.ml *.mli > .depend
 	$(OCAMLDEP) $(INCLUDES_DEP) -shared generators/*.ml >> .depend
-	$(OCAMLDEP) -I stdlib_non_prefixed stdlib_non_prefixed/*.mli >> .depend
 
 include .depend
