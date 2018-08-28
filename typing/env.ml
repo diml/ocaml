@@ -164,7 +164,7 @@ type summary =
   | Env_modtype of summary * Ident.t * modtype_declaration
   | Env_class of summary * Ident.t * class_declaration
   | Env_cltype of summary * Ident.t * class_type_declaration
-  | Env_open of summary * String.Set.t * Path.t
+  | Env_open of summary * Path.t
   | Env_functor_arg of summary * Ident.t
   | Env_constraints of summary * type_declaration Path.Map.t
   | Env_copy_types of summary * string list
@@ -450,14 +450,107 @@ type type_descriptions =
 
 let in_signature_flag = 0x01
 
+type can_load_cmis =
+  | Can_load_cmis
+  | Cannot_load_cmis of EnvLazy.log
+
+let can_load_cmis = ref Can_load_cmis
+
+let without_cmis f x =
+  let log = EnvLazy.log () in
+  let res =
+    Misc.(protect_refs
+            [R (can_load_cmis, Cannot_load_cmis log)]
+            (fun () -> f x))
+  in
+  EnvLazy.backtrack log;
+  res
+
+module Persistent : sig
+  type 'a t
+
+  val create : filename:string -> (unit -> 'a) -> 'a t
+  val filename : _ t -> string
+  val map : 'a t -> f:('a -> 'b) -> 'b t
+
+  (** Raise [Not_found] if the value is not already loaded and
+      [can_load_cmis] is [Cannot_load_cmis _]. *)
+  val load : 'a t -> 'a
+
+  (** Return [None] is the value is not already loaded or failed to load. *)
+  val peek : 'a t -> 'a option
+end = struct
+  type 'a t = {
+    data : 'a state ref;
+    (* We need to keep the filename around for the
+         [#remove_directory] directive in the toplevel. *)
+    filename : string;
+  }
+
+  and 'a state =
+    | Loaded of 'a
+    | Raised of exn
+    | Not_loaded of (unit -> 'a)
+
+  let create ~filename f = {
+    data = ref (Not_loaded f);
+    filename;
+  }
+
+  let filename t = t.filename
+
+  let load t =
+    match !(t.data) with
+    | Loaded x -> x
+    | Raised e -> raise e
+    | Not_loaded f ->
+        match !can_load_cmis with
+        | Cannot_load_cmis _ -> raise Not_found
+        | Can_load_cmis ->
+            match f () with
+            | x ->
+                t.data := Loaded x;
+                x
+            | exception e ->
+                t.data := Raised e;
+                raise e
+
+  let map t ~f =
+    { t with data = ref (Not_loaded (fun () -> f (load t))) }
+
+  let peek t =
+    match !(t.data) with
+    | Loaded x -> Some x
+    | _ -> None
+end
+let _ = Persistent.filename
+
+module Value_or_persistent = struct
+  type ('a, 'b) t =
+    | Value of 'a
+    | Persistent of 'b Persistent.t
+
+  let load = function
+    | Value x -> x
+    | Persistent pers -> Persistent.load pers
+
+  let peek = function
+    | Value x -> Some x
+    | Persistent pers -> Persistent.peek pers
+end
+open Value_or_persistent
+
 type t = {
   values: value_description IdTbl.t;
   constrs: constructor_description TycompTbl.t;
   labels: label_description TycompTbl.t;
   types: (type_declaration * type_descriptions) IdTbl.t;
-  modules: (Subst.t * module_declaration, module_declaration) EnvLazy.t IdTbl.t;
+  modules:
+    ((Subst.t * module_declaration, module_declaration) EnvLazy.t,
+     module_declaration) Value_or_persistent.t IdTbl.t;
   modtypes: modtype_declaration IdTbl.t;
-  components: module_components IdTbl.t;
+  components:
+    (module_components, module_components) Value_or_persistent.t IdTbl.t;
   classes: class_declaration IdTbl.t;
   cltypes: class_type_declaration IdTbl.t;
   functor_args: unit Ident.tbl;
@@ -573,22 +666,6 @@ let diff env1 env2 =
   TycompTbl.diff_keys is_local_ext env1.constrs env2.constrs @
   IdTbl.diff_keys env1.modules env2.modules @
   IdTbl.diff_keys env1.classes env2.classes
-
-type can_load_cmis =
-  | Can_load_cmis
-  | Cannot_load_cmis of EnvLazy.log
-
-let can_load_cmis = ref Can_load_cmis
-
-let without_cmis f x =
-  let log = EnvLazy.log () in
-  let res =
-    Misc.(protect_refs
-            [R (can_load_cmis, Cannot_load_cmis log)]
-            (fun () -> f x))
-  in
-  EnvLazy.backtrack log;
-  res
 
 (* Forward declarations *)
 
@@ -711,6 +788,8 @@ module Persistent_signature = struct
     match find_in_path_uncap !load_path (unit_name ^ ".cmi") with
     | filename -> Some { filename; cmi = read_cmi filename }
     | exception Not_found -> None)
+
+  let () = load := (fun ~unit_name:_ -> None)
 end
 
 let acknowledge_pers_struct check modname
@@ -866,13 +945,8 @@ let get_unit_name () =
 let rec find_module_descr path env =
   match path with
     Pident id ->
-      begin try
-        IdTbl.find_same id env.components
-      with Not_found ->
-        if Ident.persistent id && not (Ident.name id = !current_unit)
-        then (find_pers_struct (Ident.name id)).ps_comps
-        else raise Not_found
-      end
+      IdTbl.find_same id env.components
+      |> Value_or_persistent.load
   | Pdot(p, s, _pos) ->
       begin match get_components (find_module_descr p env) with
         Structure_comps c ->
@@ -969,14 +1043,10 @@ let find_type_descrs p env =
 let find_module ~alias path env =
   match path with
     Pident id ->
-      begin try
-        let data = IdTbl.find_same id env.modules in
-        EnvLazy.force subst_modtype_maker data
-      with Not_found ->
-        if Ident.persistent id && not (Ident.name id = !current_unit) then
-          let ps = find_pers_struct (Ident.name id) in
-          md (Mty_signature(Lazy.force ps.ps_sig))
-        else raise Not_found
+      begin
+        match IdTbl.find_same id env.modules with
+        | Value data -> EnvLazy.force subst_modtype_maker data
+        | Persistent p -> Persistent.load p
       end
   | Pdot(p, s, _pos) ->
       begin match get_components (find_module_descr p env) with
@@ -1118,13 +1188,8 @@ let mark_module_used name loc =
 let rec lookup_module_descr_aux ?loc ~mark lid env =
   match lid with
     Lident s ->
-      begin try
-        IdTbl.find_name ~mark s env.components
-      with Not_found ->
-        if s = !current_unit then raise Not_found;
-        let ps = find_pers_struct s in
-        (Pident(Ident.create_persistent s), ps.ps_comps)
-      end
+      let (p, data) = IdTbl.find_name ~mark s env.components in
+      (p, Value_or_persistent.load data)
   | Ldot(l, s) ->
       let (p, descr) = lookup_module_descr ?loc ~mark l env in
       begin match get_components descr with
@@ -1162,34 +1227,30 @@ and lookup_module_descr ?loc ~mark lid env =
 and lookup_module ~load ?loc ~mark lid env : Path.t =
   match lid with
     Lident s ->
-      begin try
-        let (p, data) = IdTbl.find_name ~mark s env.modules in
-        let {md_loc; md_attributes; md_type} =
-          EnvLazy.force subst_modtype_maker data
-        in
-        if mark then mark_module_used s md_loc;
-        begin match md_type with
-        | Mty_ident (Path.Pident id) when Ident.name id = "#recmod#" ->
-          (* see #5965 *)
-          raise Recmodule
-        | _ -> ()
-        end;
-        report_deprecated ?loc p
-          (Builtin_attributes.deprecated_of_attrs md_attributes);
-        p
-      with Not_found ->
-        if s = !current_unit then raise Not_found;
-        let p = Pident(Ident.create_persistent s) in
-        if !Clflags.transparent_modules && not load
-        then
-          let loc = match loc with Some l -> l | None -> Location.none in
-          check_pers_struct ~loc s
-        else begin
-          let ps = find_pers_struct s in
-          report_deprecated ?loc p ps.ps_comps.deprecated
-        end;
-        p
-      end
+      let (p, data) = IdTbl.find_name ~mark s env.modules in
+      Option.iter
+        (fun md ->
+           report_deprecated ?loc p
+             (Builtin_attributes.deprecated_of_attrs md.md_attributes))
+        (match data with
+         | Value data ->
+             let md = EnvLazy.force subst_modtype_maker data in
+             if mark then mark_module_used s md.md_loc;
+             begin match md.md_type with
+             | Mty_ident (Path.Pident id) when Ident.name id = "#recmod#" ->
+                 (* see #5965 *)
+                 raise Recmodule
+             | _ -> ()
+             end;
+             Some md
+         | Persistent pers ->
+             if !Clflags.transparent_modules && not load then begin
+               check_pers_struct s
+                 ~loc:(Option.value loc ~default:Location.none);
+               None
+             end else
+               Some (Persistent.load pers));
+      p
   | Ldot(l, s) ->
       let (p, descr) = lookup_module_descr ?loc ~mark l env in
       begin match get_components descr with
@@ -1490,15 +1551,11 @@ let iter_env proj1 proj2 f env () =
       | Functor_comps _ -> ()
     in iter_env_cont := (path, cont) :: !iter_env_cont
   in
-  Hashtbl.iter
-    (fun s pso ->
-      match pso with None -> ()
-      | Some ps ->
-          let id = Pident (Ident.create_persistent s) in
-          iter_components id id ps.ps_comps)
-    persistent_structures;
   IdTbl.iter
-    (fun id (path, comps) -> iter_components (Pident id) path comps)
+    (fun id (path, comps) ->
+       Option.iter
+         (iter_components (Pident id) path)
+         (Value_or_persistent.peek comps))
     env.components
 
 let run_iter_cont l =
@@ -1529,7 +1586,12 @@ let find_all_comps proj s (p,mcomps) =
 let rec find_shadowed_comps path env =
   match path with
     Pident id ->
-      IdTbl.find_all (Ident.name id) env.components
+      Misc.Stdlib.List.filter_map
+        (fun (p, data) ->
+           match data with
+           | Value x -> Some (p, x)
+           | Persistent _ -> None)
+        (IdTbl.find_all (Ident.name id) env.components)
   | Pdot (p, s, _) ->
       let l = find_shadowed_comps p env in
       let l' =
@@ -1872,11 +1934,14 @@ and store_module ~check id md env =
 
   let deprecated = Builtin_attributes.deprecated_of_attrs md.md_attributes in
   { env with
-    modules = IdTbl.add id (EnvLazy.create (Subst.identity, md)) env.modules;
+    modules =
+      IdTbl.add id (Value (EnvLazy.create (Subst.identity, md)))
+        env.modules;
     components =
       IdTbl.add id
-        (components_of_module ~deprecated ~loc:md.md_loc
-           env Subst.identity (Pident id) md.md_type)
+        (Value
+           (components_of_module ~deprecated ~loc:md.md_loc
+              env Subst.identity (Pident id) md.md_type))
         env.components;
     summary = Env_module(env.summary, id, md) }
 
@@ -1995,36 +2060,12 @@ let rec add_signature sg env =
 
 (* Open a signature path *)
 
-let add_components ?filter_modules slot root env0 comps =
+let add_components slot root env0 comps =
   let add_l w comps env0 =
     TycompTbl.add_open slot w comps env0
   in
 
   let add w comps env0 = IdTbl.add_open slot w root comps env0 in
-
-  let skipped_modules = ref String.Set.empty in
-  let filter tbl env0_tbl =
-    match filter_modules with
-    | None -> tbl
-    | Some f ->
-      NameMap.fold (fun m x acc ->
-        if f m then
-          NameMap.add m x acc
-        else begin
-          assert
-            (match IdTbl.find_name m env0_tbl~mark:false with
-             | (_ : _ * _) -> false
-             | exception _ -> true);
-          skipped_modules := String.Set.add m !skipped_modules;
-          acc
-        end)
-        tbl NameMap.empty
-  in
-
-  let filter_and_add w comps env0 =
-    let comps = filter comps env0 in
-    add w comps env0
-  in
 
   let constrs =
     add_l (fun x -> `Constructor x) comps.comp_constrs env0.constrs
@@ -2049,15 +2090,21 @@ let add_components ?filter_modules slot root env0 comps =
     add (fun x -> `Class_type x) comps.comp_cltypes env0.cltypes
   in
   let components =
-    filter_and_add (fun x -> `Component x) comps.comp_components env0.components
+    let components =
+      NameMap.map (fun (x, y) -> (Value x, y)) comps.comp_components
+    in
+    add (fun x -> `Component x) components env0.components
   in
 
   let modules =
-    filter_and_add (fun x -> `Module x) comps.comp_modules env0.modules
+    let modules =
+      NameMap.map (fun (x, y) -> (Value x, y)) comps.comp_modules
+    in
+    add (fun x -> `Module x) modules env0.modules
   in
 
   { env0 with
-    summary = Env_open(env0.summary, !skipped_modules, root);
+    summary = Env_open(env0.summary, root);
     constrs;
     labels;
     values;
@@ -2069,11 +2116,11 @@ let add_components ?filter_modules slot root env0 comps =
     modules;
   }
 
-let open_signature ?filter_modules slot root env0 =
+let open_signature slot root env0 =
   match get_components (find_module_descr root env0) with
   | Functor_comps _ -> None
   | Structure_comps comps ->
-    Some (add_components ?filter_modules slot root env0 comps)
+    Some (add_components slot root env0 comps)
 
 
 (* Open a signature from a file *)
@@ -2082,24 +2129,6 @@ let open_pers_signature name env =
   match open_signature None (Pident(Ident.create_persistent name)) env with
   | Some env -> env
   | None -> assert false (* a compilation unit cannot refer to a functor *)
-
-let open_signature_of_initially_opened_module root env =
-  let load_path = !Config.load_path in
-  let filter_modules m =
-    match Misc.find_in_path_uncap load_path (m ^ ".cmi") with
-    | (_ : string) -> false
-    | exception Not_found -> true
-  in
-  open_signature None root env ~filter_modules
-
-let open_signature_from_env_summary root env ~hidden_submodules =
-  let filter_modules =
-    if String.Set.is_empty hidden_submodules then
-      None
-    else
-      Some (fun m -> not (String.Set.mem m hidden_submodules))
-  in
-  open_signature None root env ?filter_modules
 
 let open_signature
     ?(used_slot = ref false)
@@ -2143,6 +2172,34 @@ let open_signature
 let read_signature modname filename =
   let ps = read_pers_struct modname filename in
   Lazy.force ps.ps_sig
+
+let add_persistent_structure ~name ~filename env =
+  if name <> !current_unit then begin
+    let id = Ident.create_persistent name in
+    let loc = Location.in_file filename in
+    let pers =
+      Persistent.create ~filename (fun () ->
+          read_pers_struct name filename)
+    in
+    let m =
+      Persistent (Persistent.map pers ~f:(fun ps -> {
+            md_type = Mty_signature (Lazy.force ps.ps_sig);
+            md_attributes =
+              Option.map (Builtin_attributes.attr_of_deprecated ~loc)
+                ps.ps_comps.deprecated
+              |> Option.to_list;
+            md_loc = loc;
+          }))
+    in
+    let c =
+      Persistent (Persistent.map pers ~f:(fun ps -> ps.ps_comps))
+    in
+    { env with
+      modules = IdTbl.add id m env.modules;
+      components = IdTbl.add id c env.components;
+    }
+  end else
+    env
 
 (* Return the CRC of the interface of the given compilation unit *)
 
@@ -2259,23 +2316,17 @@ let find_all_simple_list proj1 proj2 f lid env acc =
 let fold_modules f lid env acc =
   match lid with
     | None ->
-      let acc =
-        IdTbl.fold_name
-          (fun name (p, data) acc ->
-             let data = EnvLazy.force subst_modtype_maker data in
-             f name p data acc
-          )
-          env.modules
-          acc
-      in
-      Hashtbl.fold
-        (fun name ps acc ->
-          match ps with
-              None -> acc
-            | Some ps ->
-              f name (Pident(Ident.create_persistent name))
-                     (md (Mty_signature (Lazy.force ps.ps_sig))) acc)
-        persistent_structures
+      IdTbl.fold_name
+        (fun name (p, data) acc ->
+           match data with
+           | Value data ->
+               let data = EnvLazy.force subst_modtype_maker data in
+               f name p data acc
+           | Persistent pers ->
+               match Persistent.peek pers with
+               | data -> f name p data acc
+               | exception Not_found -> acc)
+        env.modules
         acc
     | Some l ->
       let p, desc = lookup_module_descr ~mark:true l env in
@@ -2283,8 +2334,8 @@ let fold_modules f lid env acc =
           Structure_comps c ->
             NameMap.fold
               (fun s (data, pos) acc ->
-                f s (Pdot (p, s, pos))
-                    (EnvLazy.force subst_modtype_maker data) acc)
+                 f s (Pdot (p, s, pos))
+                   (EnvLazy.force subst_modtype_maker data) acc)
               c.comp_modules
               acc
         | Functor_comps _ ->

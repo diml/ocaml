@@ -35,6 +35,7 @@ val check_deprecated_inclusion:
 val deprecated_of_attrs: Parsetree.attributes -> string option
 val deprecated_of_sig: Parsetree.signature -> string option
 val deprecated_of_str: Parsetree.structure -> string option
+val attr_of_deprecated: loc:Location.t -> string -> Parsetree.attribute
 
 val check_deprecated_mutable:
     Location.t -> Parsetree.attributes -> string -> unit

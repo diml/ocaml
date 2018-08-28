@@ -86,6 +86,13 @@ let deprecated_of_attrs l =
   | None -> None
   | Some a -> Some (string_of_opt_payload a.attr_payload)
 
+let attr_of_deprecated ~loc s = {
+  attr_name = { txt = "ocaml.deprecated"; loc };
+  attr_payload =
+    PStr Ast_helper.[Str.eval ~loc (Exp.constant ~loc (Const.string s))];
+  attr_loc = loc
+}
+
 let check_deprecated loc attrs s =
   match deprecated_of_attrs attrs with
   | None -> ()

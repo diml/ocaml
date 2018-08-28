@@ -143,37 +143,93 @@ let type_open_ ?used_slot ?toplevel ovf env loc lid =
       ignore (extract_sig_open env lid.loc md.md_type);
       assert false
 
-let type_initially_opened_module env module_name =
-  let loc = Location.in_file "compiler internals" in
-  let lid = { Asttypes.loc; txt = Longident.Lident module_name } in
-  let path = Typetexp.lookup_module ~load:true env lid.loc lid.txt in
-  match Env.open_signature_of_initially_opened_module path env with
-  | Some env -> path, env
-  | None ->
-      let md = Env.find_module path env in
-      ignore (extract_sig_open env lid.loc md.md_type);
-      assert false
+let is_identchar_latin1 = function
+  | 'A'..'Z' | 'a'..'z' | '_' | '\192'..'\214' | '\216'..'\246'
+  | '\248'..'\255' | '\'' | '0'..'9' -> true
+  | _ -> false
+
+let unit_name_of_filename fn =
+  match Filename.extension fn with
+  | ".cmi" -> begin
+      let unit =
+        String.capitalize_ascii (Filename.remove_extension fn)
+      in
+      if String.for_all is_identchar_latin1 unit then
+        Some unit
+      else
+        None
+    end
+  | _ -> None
+
+let persistent_structures_of_dir dir =
+  (* For backward compatibility reason, simulate the behavior of
+     [Misc.find_in_path]: silently ignore directories that don't exist
+     + treat [""] as the current directory. *)
+  let readdir_compat dir =
+    try
+      Sys.readdir (if dir = "" then Filename.current_dir_name else dir)
+    with _ ->
+      [||]
+  in
+  readdir_compat dir
+  |> Array.to_seq
+  |> Seq.filter_map (fun base ->
+      match unit_name_of_filename base with
+      | None -> None
+      | Some unit ->
+          Some (unit, Filename.concat dir base))
+  |> String.Map.of_seq
 
 let initial_env ~loc ~safe_string ~initially_opened_module
-      ~open_implicit_modules =
+    ~open_implicit_modules =
   let env =
     if safe_string then
       Env.initial_safe_string
     else
       Env.initial_unsafe_string
   in
-  let env =
-    match initially_opened_module with
-    | None -> env
-    | Some name ->
-      snd (type_initially_opened_module env name)
-  in
-  let open_implicit_module env m =
+  let open_module env m =
     let open Asttypes in
     let lid = {loc; txt = Longident.parse m } in
     snd (type_open_ Override env lid.loc lid)
   in
-  List.fold_left open_implicit_module env open_implicit_modules
+  let add_units env units =
+    String.Map.fold
+      (fun name filename env ->
+         Env.add_persistent_structure env ~name ~filename)
+      units
+      env
+  in
+  let units = List.rev_map persistent_structures_of_dir !Config.load_path in
+  let env, units =
+    match initially_opened_module with
+    | None -> (env, units)
+    | Some m ->
+        (* Locate the directory that contains [m], adds the units it
+           contains to the environment and open [m] in the resulting
+           environment. *)
+        let rec loop before after =
+          match after with
+          | [] -> None
+          | units :: after ->
+              if not (String.Map.mem m units) then
+                Some (units, List.rev_append before after)
+              else
+                loop (units :: before) after
+        in
+        match loop [] units with
+        | None -> (env, units)
+        | Some (units_containing_m, other_units) ->
+            let env = add_units env units_containing_m in
+            let env = open_module env m in
+            (env, other_units)
+  in
+  let units =
+    List.fold_left (String.Map.union (fun _ _ x -> Some x))
+      String.Map.empty units
+  in
+  let env = add_units env units in
+  List.fold_left open_module env open_implicit_modules
 
 let type_open ?toplevel env sod =
   let (path, newenv) =
