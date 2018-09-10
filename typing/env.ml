@@ -2324,8 +2324,8 @@ let fold_modules f lid env acc =
                f name p data acc
            | Persistent pers ->
                match Persistent.peek pers with
-               | data -> f name p data acc
-               | exception Not_found -> acc)
+               | Some data -> f name p data acc
+               | None -> acc)
         env.modules
         acc
     | Some l ->
