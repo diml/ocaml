@@ -477,6 +477,10 @@ module Persistent : sig
       [can_load_cmis] is [Cannot_load_cmis _]. *)
   val load : 'a t -> 'a
 
+  (** Same as [load] but ignore the result. Useful to test loading
+      errors. *)
+  val load_unit : _ t -> unit
+
   (** Return [None] is the value is not already loaded or failed to load. *)
   val peek : 'a t -> 'a option
 end = struct
@@ -514,6 +518,8 @@ end = struct
             | exception e ->
                 t.data := Raised e;
                 raise e
+
+  let load_unit t = ignore (load t)
 
   let map t ~f =
     { t with data = ref (Not_loaded (fun () -> f (load t))) }
@@ -859,9 +865,9 @@ let find_pers_struct check name =
         acknowledge_pers_struct check name ps
 
 (* Emits a warning if there is no valid cmi for name *)
-let check_pers_struct ~loc name =
+let check_pers_struct ~loc name pers =
   try
-    ignore (find_pers_struct false name)
+    Persistent.load_unit pers
   with
   | Not_found ->
       let warn = Warnings.No_cmi_file(name, None) in
@@ -898,7 +904,7 @@ let read_pers_struct modname filename =
 let find_pers_struct name =
   find_pers_struct true name
 
-let check_pers_struct ~loc name =
+let check_pers_struct ~loc name pers =
   if not (Hashtbl.mem persistent_structures name) then begin
     (* PR#6843: record the weak dependency ([add_import]) regardless of
        whether the check succeeds, to help make builds more
@@ -906,7 +912,7 @@ let check_pers_struct ~loc name =
     add_import name;
     if (Warnings.is_active (Warnings.No_cmi_file("", None))) then
       !add_delayed_check_forward
-        (fun () -> check_pers_struct ~loc name)
+        (fun () -> check_pers_struct ~loc name pers)
   end
 
 let reset_cache () =
@@ -1245,7 +1251,7 @@ and lookup_module ~load ?loc ~mark lid env : Path.t =
              Some md
          | Persistent pers ->
              if !Clflags.transparent_modules && not load then begin
-               check_pers_struct s
+               check_pers_struct s pers
                  ~loc:(Option.value loc ~default:Location.none);
                None
              end else
