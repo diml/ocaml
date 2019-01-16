@@ -13,6 +13,9 @@
 #*                                                                        *
 #**************************************************************************
 
+x:
+	dune build toplevel/topstart.exe
+
 # The main Makefile
 
 ROOTDIR = .

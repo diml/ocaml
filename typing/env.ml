@@ -572,6 +572,7 @@ let empty = {
   summary = Env_empty; local_constraints = Path.Map.empty;
   flags = 0;
   functor_args = Ident.empty;
+  toplevel_printers = Ident.empty;
  }
 
 let in_signature b env =
@@ -1967,8 +1968,8 @@ and store_value ?check id addr decl env =
   let toplevel_printers =
     if Builtin_attributes.has_toplevel_printer decl.val_attributes then
       (* Extract the type constructor this printer is for *)
-      let extract_id ty =
-        match Btype.repr ty with
+      let rec extract_id ty =
+        match (Btype.repr ty).desc with
         | Tarrow (_, ty1, ty2, _) ->
             let ty2_is_unit =
               match (Btype.repr ty2).desc with
@@ -1979,7 +1980,7 @@ and store_value ?check id addr decl env =
               extract_id ty2
             else begin
               match (Btype.repr ty1).desc with
-              | Tconstr (Pident id, args, _) -> Some id
+              | Tconstr (Pident id, _, _) -> Some id
               | _ -> None
             end
         | _ -> None

@@ -84,9 +84,6 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           with _exn -> 0
       end)
 
-    let toplevel_printers_by_path : value_description =
-      Hashtbl.create 128
-
     (* Given an exception value, we cannot recover its type,
        hence we cannot print its arguments in general.
        Here, we do a feeble attempt to print
@@ -584,7 +581,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           begin match (Ctype.expand_head env ty).desc with
           | Tconstr (p, args, _) when Path.same p path ->
               Some (try apply_generic_printer path (fn depth) args
-                    with exn -> Some (fun _obj -> out_exn path exn))
+                    with exn -> (fun _obj -> out_exn path exn))
           | _ -> find remainder end in
       match find !printers with
       | Some _ as res -> res
@@ -592,22 +589,13 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
         find_annotated_function env ty
 
     (* Look for a function annotated with [@@ocaml.toplevel_printer] *)
-    and find_annotated_function env ty =
-      match (Ctypes.repr ty).desc with
-      | Tconstr (p, args, _) -> begin
-          match p with
-          | Pident id ->
-              Env.fold_value 
-        end
+    and find_annotated_function _env ty =
+      match (Ctype.repr ty).desc with
+      | Tconstr (_p, _args, _) -> None
       | _ -> None
 
-    and is_toplevel_printer value =
-      let is_toplevel_printer_attribute ({Asttypes.txt; _}, _) =
-        match txt with
-        | "toplevel_printer" | "ocaml.toplevel_printer" -> true
-        | _ -> false
-      in
-      List.exists is_toplevel_printer_attribute value.val_attributes
+    and _is_toplevel_printer value =
+      Builtin_attributes.has_toplevel_printer value.val_attributes
 
     and apply_generic_printer path printer args =
       match (printer, args) with
