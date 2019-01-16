@@ -476,6 +476,8 @@ type t = {
   summary: summary;
   local_constraints: type_declaration Path.Map.t;
   flags: int;
+  (* Toplevel values annotated with [@@ocaml.toplevel_printer] *)
+  toplevel_printers: value_description Ident.tbl;
 }
 
 and module_declaration_lazy =
@@ -1962,9 +1964,36 @@ and check_value_name name loc =
 and store_value ?check id addr decl env =
   check_value_name (Ident.name id) decl.val_loc;
   may (fun f -> check_usage decl.val_loc id f value_declarations) check;
+  let toplevel_printers =
+    if Builtin_attributes.has_toplevel_printer decl.val_attributes then
+      (* Extract the type constructor this printer is for *)
+      let extract_id ty =
+        match Btype.repr ty with
+        | Tarrow (_, ty1, ty2, _) ->
+            let ty2_is_unit =
+              match (Btype.repr ty2).desc with
+              | Tconstr (p, [], _) -> Path.same p Predef.path_unit
+              | _ -> false
+            in
+            if not ty2_is_unit then
+              extract_id ty2
+            else begin
+              match (Btype.repr ty1).desc with
+              | Tconstr (Pident id, args, _) -> Some id
+              | _ -> None
+            end
+        | _ -> None
+      in
+      match extract_id decl.val_type with
+      | None -> env.toplevel_printers
+      | Some id -> Ident.add id decl env.toplevel_printers
+    else
+      env.toplevel_printers
+  in
   { env with
     values = IdTbl.add id (decl, addr) env.values;
-    summary = Env_value(env.summary, id, decl) }
+    summary = Env_value(env.summary, id, decl);
+    toplevel_printers }
 
 and store_type ~check id info env =
   let loc = info.type_loc in

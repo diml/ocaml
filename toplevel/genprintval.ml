@@ -84,6 +84,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           with _exn -> 0
       end)
 
+    let toplevel_printers_by_path : value_description =
+      Hashtbl.create 128
 
     (* Given an exception value, we cannot recover its type,
        hence we cannot print its arguments in general.
@@ -253,10 +255,10 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
       let rec tree_of_val depth obj ty =
         decr printer_steps;
         if !printer_steps < 0 || depth < 0 then Oval_ellipsis
-        else begin
-        try
-          find_printer depth env ty obj
-        with Not_found ->
+        else
+          match find_printer depth env ty with
+          | Some p -> p obj
+          | None ->
           match (Ctype.repr ty).desc with
           | Tvar _ | Tunivar _ ->
               Oval_stuff "<poly>"
@@ -481,7 +483,6 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
               tree_of_val (depth - 1) obj ty
           | Tpackage _ ->
               Oval_stuff "<module>"
-        end
 
       and tree_of_record_fields depth env path type_params ty_list
           lbl_list pos obj unboxed =
@@ -574,18 +575,39 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
 
     and find_printer depth env ty =
       let rec find = function
-      | [] -> raise Not_found
+      | [] -> None
       | (_name, Simple (sch, printer)) :: remainder ->
           if Ctype.moregeneral env false sch ty
-          then printer
+          then Some printer
           else find remainder
       | (_name, Generic (path, fn)) :: remainder ->
           begin match (Ctype.expand_head env ty).desc with
           | Tconstr (p, args, _) when Path.same p path ->
-              begin try apply_generic_printer path (fn depth) args
-              with exn -> (fun _obj -> out_exn path exn) end
+              Some (try apply_generic_printer path (fn depth) args
+                    with exn -> Some (fun _obj -> out_exn path exn))
           | _ -> find remainder end in
-      find !printers
+      match find !printers with
+      | Some _ as res -> res
+      | None ->
+        find_annotated_function env ty
+
+    (* Look for a function annotated with [@@ocaml.toplevel_printer] *)
+    and find_annotated_function env ty =
+      match (Ctypes.repr ty).desc with
+      | Tconstr (p, args, _) -> begin
+          match p with
+          | Pident id ->
+              Env.fold_value 
+        end
+      | _ -> None
+
+    and is_toplevel_printer value =
+      let is_toplevel_printer_attribute ({Asttypes.txt; _}, _) =
+        match txt with
+        | "toplevel_printer" | "ocaml.toplevel_printer" -> true
+        | _ -> false
+      in
+      List.exists is_toplevel_printer_attribute value.val_attributes
 
     and apply_generic_printer path printer args =
       match (printer, args) with
