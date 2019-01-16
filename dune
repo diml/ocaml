@@ -56,7 +56,7 @@
    typedtreeIter tast_mapper cmt_format untypeast includemod
    typetexp printpat parmatch stypes typedecl typeopt rec_check typecore
    typeclass typemod typedecl_variance typedecl_properties typedecl_immediacy
-   typedecl_unboxed
+   typedecl_unboxed toplevel_printer
    ; manual update: mli only files
    annot outcometree
 
