@@ -189,6 +189,12 @@ Working version
 - #8515: manual, precise constraints on reexported types
   (Florian Angeletti, review by Gabriel Scherer)
 
+### Tools:
+
+- #....: add a strict mode to ocamldep, causing it to fail when an
+  input file is missing
+  (Jérémie Dimino)
+
 ### Bug fixes:
 
 - #7156, #8594: make top level use custom printers if they are available

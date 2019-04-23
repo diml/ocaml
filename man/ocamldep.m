@@ -67,6 +67,11 @@ implicit dependencies.
 .B \-allow\-approx
 Allow falling back on a lexer-based approximation when parsing fails.
 .TP
+.B \-strict
+Fail if an input file is missing. The default behavior is to silently
+ignore missing files so that one can use the same "ocamldep *.mli *.ml"
+invocation regardless of whether there are mli files or not in the directory.
+.TP
 .B \-as\-map
 For the following files, do not include delayed dependencies for
 module aliases.

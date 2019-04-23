@@ -38,6 +38,7 @@ let allow_approximation = ref false
 let map_files = ref []
 let module_map = ref String.Map.empty
 let debug = ref false
+let strict = ref false
 
 module Error_occurred : sig
   val set : unit -> unit
@@ -408,7 +409,13 @@ let process_file_as process_fun def source_file =
       ));
   Location.input_name := source_file;
   try
-    if Sys.file_exists source_file then process_fun source_file else def
+    if Sys.file_exists source_file then
+      process_fun source_file
+    else if !strict then begin
+      report_err (Sys_error (source_file ^ ": No such file or directory"));
+      def
+    end else
+      def
   with x -> report_err x; def
 
 let process_file source_file ~ml_file ~mli_file ~def =
@@ -627,7 +634,9 @@ let main () =
          \      from <file>";
      "-args0", Arg.Expand Arg.read_arg0,
          "<file> Read additional NUL separated command line arguments from \n\
-         \      <file>"
+         \      <file>";
+     "-strict", Arg.Set strict,
+         " Fail if an input file is missing.";
   ];
   let usage =
     Printf.sprintf "Usage: %s [options] <source files>\nOptions are:"
