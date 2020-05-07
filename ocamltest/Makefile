@@ -132,7 +132,10 @@ ocaml_plugin := \
   ocaml_compilers.mli ocaml_compilers.ml \
   ocaml_toplevels.mli ocaml_toplevels.ml \
   ocaml_actions.mli ocaml_actions.ml \
-  ocaml_tests.mli ocaml_tests.ml
+  ocaml_tests.mli ocaml_tests.ml \
+  cram_lexer.mli cram_lexer.ml \
+  cram_run.mli cram_run.ml \
+  cram_sanitize.mli cram_sanitize.ml
 
 sources := $(core) $(ocaml_plugin) \
   options.mli options.ml \

@@ -69,6 +69,21 @@ builtin_variables.cmx : \
     builtin_variables.cmi
 builtin_variables.cmi : \
     variables.cmi
+cram_lexer.cmi :
+cram_run.cmo : \
+    cram_lexer.cmi \
+    cram_run.cmi
+cram_run.cmx : \
+    cram_lexer.cmi \
+    cram_run.cmi
+cram_run.cmi :
+cram_sanitize.cmo : \
+    cram_lexer.cmi \
+    cram_sanitize.cmi
+cram_sanitize.cmx : \
+    cram_lexer.cmi \
+    cram_sanitize.cmi
+cram_sanitize.cmi :
 environments.cmo : \
     variables.cmi \
     ocamltest_stdlib.cmi \
